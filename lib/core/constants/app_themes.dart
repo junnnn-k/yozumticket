@@ -54,10 +54,10 @@ class AppThemes {
       ),
 
       // 카드 테마
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFFFFFFFF),
         elevation: 2,
-        shadowColor: const Color(0xFFA8D8EA).withOpacity(0.3),
+        shadowColor: const Color(0xFFA8D8EA).withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: const BorderSide(
@@ -118,10 +118,10 @@ class AppThemes {
         onInverseSurface: Color(0xFFF4EFF4),
       ),
 
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFFFAFAFA),
         elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.08),
+        shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(4),
           side: const BorderSide(
@@ -181,14 +181,14 @@ class AppThemes {
         onInverseSurface: Color(0xFF1a1a1a),
       ),
 
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFF2a2a2a),
         elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.5),
+        shadowColor: Colors.black.withValues(alpha: 0.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: const Color(0xFFFFD700).withOpacity(0.2),
+            color: const Color(0xFFFFD700).withValues(alpha: 0.2),
             width: 2,
           ),
         ),

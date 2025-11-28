@@ -16,9 +16,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   // 선택된 구장
   String? _selectedStadium;
 
-  // 선택된 기간
-  DateTimeRange? _selectedDateRange;
-
   // 최소 별점
   int _minRating = 0;
 
@@ -78,7 +75,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                   setState(() {
                     _selectedTeam = null;
                     _selectedStadium = null;
-                    _selectedDateRange = null;
                     _minRating = 0;
                   });
                 },
@@ -127,7 +123,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           ),
           const SizedBox(height: AppSizes.sm),
           DropdownButtonFormField<String>(
-            value: _selectedStadium,
+            initialValue: _selectedStadium,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(

@@ -159,7 +159,8 @@ class _ThemeCard extends StatelessWidget {
               color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(AppSizes.radiusSm),
               border: theme.cardTheme.shape is RoundedRectangleBorder
-                  ? (theme.cardTheme.shape as RoundedRectangleBorder).side
+                  ? Border.fromBorderSide(
+                      (theme.cardTheme.shape as RoundedRectangleBorder).side)
                   : null,
               boxShadow: [
                 BoxShadow(

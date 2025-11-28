@@ -194,7 +194,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           Icon(
             Icons.book_outlined,
             size: 80,
-            color: theme.colorScheme.onSurface.withOpacity(0.3),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
           ),
           const SizedBox(height: AppSizes.md),
           Text(
