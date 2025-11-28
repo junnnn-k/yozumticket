@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "251717313238",
+    "project_id": "yozumticket",
+    "storage_bucket": "yozumticket.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:251717313238:android:588483db14826796965f77",
+        "android_client_info": {
+          "package_name": "com.yozumticket.yozumticket"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7qNMLhNFa-kBwX5zg_UhD8f3dOfl0PQY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
