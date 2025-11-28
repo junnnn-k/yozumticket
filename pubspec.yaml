@@ -42,6 +42,29 @@ dependencies:
   firebase_storage: ^12.4.0
   firebase_analytics: ^11.3.8
 
+  # 소셜 로그인
+  google_sign_in: ^6.2.2
+  kakao_flutter_sdk: ^1.9.7
+  flutter_naver_login: ^1.8.0
+
+  # 이미지 처리
+  image_picker: ^1.1.2
+  image_cropper: ^8.0.2
+  cached_network_image: ^3.4.1
+
+  # OCR
+  google_mlkit_text_recognition: ^0.15.0
+
+  # 상태 관리
+  provider: ^6.1.2
+
+  # 네비게이션
+  go_router: ^14.6.2
+
+  # UI
+  flutter_svg: ^2.0.16
+  intl: ^0.19.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
