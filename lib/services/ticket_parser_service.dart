@@ -94,7 +94,7 @@ class TicketParserService {
   }
 
   /// 팀명 추출 (홈팀 vs 원정팀)
-  Map<String, String>? extractTeams(String text) {
+  Map<String, String?>? extractTeams(String text) {
     final foundTeams = <String>[];
 
     // 텍스트에서 모든 팀명 찾기
@@ -139,7 +139,7 @@ class TicketParserService {
   }
 
   /// 구장명 추출
-  String? extractStadium(String text, Map<String, String>? teams) {
+  String? extractStadium(String text, Map<String, String?>? teams) {
     // 텍스트에서 구장 키워드 찾기
     for (final entry in BaseballData.stadiums.entries) {
       if (text.contains(entry.key)) {
@@ -168,8 +168,8 @@ class TicketParserService {
       // 패턴 3: 203구역 5번
       RegExp(r'(\d{1,3})\s*구역\s*(\d{1,3})\s*번'),
 
-      // 패턴 4: 좌석 키워드 포함
-      RegExp(r'(${BaseballData.seatKeywords.join('|')})\s*(\d{1,3}[-\s]*\d{1,3})'),
+      // 패턴 4: 좌석 번호만 (블루존, 레드존 등)
+      RegExp(r'(블루존|레드존|오렌지존|그린존|네이비존|스카이존|프리미엄|테이블석|익사이팅존|응원석|지정석|자유석)\s*(\d{1,3}[-\s]*\d{1,3})'),
     ];
 
     for (final pattern in seatPatterns) {
