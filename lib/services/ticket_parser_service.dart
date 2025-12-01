@@ -170,11 +170,18 @@ class TicketParserService {
 
       // 패턴 4: 좌석 번호만 (블루존, 레드존 등)
       RegExp(r'(블루존|레드존|오렌지존|그린존|네이비존|스카이존|프리미엄|테이블석|익사이팅존|응원석|지정석|자유석)\s*(\d{1,3}[-\s]*\d{1,3})'),
+
+      // 패턴 5: 연속된 숫자 3개 (블럭 열 번) - 예: "114 24 14"
+      RegExp(r'(\d{2,3})\s+(\d{2,3})\s+(\d{1,3})'),
     ];
 
     for (final pattern in seatPatterns) {
       final match = pattern.firstMatch(text);
       if (match != null) {
+        // 패턴 5인 경우 "블럭-열-번" 형식으로 재구성
+        if (pattern == seatPatterns[4]) {
+          return '${match.group(1)}블럭 ${match.group(2)}열 ${match.group(3)}번';
+        }
         return match.group(0)?.trim();
       }
     }
@@ -194,6 +201,9 @@ class TicketParserService {
 
       // 패턴 3: 금액: 15000
       RegExp(r'금액[:：]\s*(\d{1,3}(?:,\d{3})*)'),
+
+      // 패턴 4: 콤마 포함 숫자만 (예: "32,000") - OCR에서 "원"이 누락된 경우
+      RegExp(r'(\d{1,3}(?:,\d{3})+)(?!\d)'),
     ];
 
     for (final pattern in pricePatterns) {
