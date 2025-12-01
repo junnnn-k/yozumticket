@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants/sizes.dart';
 import '../archive/archive_screen.dart';
 
@@ -81,10 +82,7 @@ class _MainScreenState extends State<MainScreen> {
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
               onPressed: () {
-                // TODO: 티켓 추가 화면으로 이동
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('티켓 추가 기능 (추후 구현)')),
-                );
+                context.push('/ticket-upload');
               },
               child: const Icon(Icons.add),
             )
@@ -212,10 +210,7 @@ class _QuickAddCard extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        // TODO: 티켓 추가 화면으로 이동
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('티켓 추가 기능 (추후 구현)')),
-        );
+        context.push('/ticket-upload');
       },
       borderRadius: BorderRadius.circular(AppSizes.radiusMd),
       child: Container(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../screens/splash/splash_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/theme_preview_screen.dart';
+import '../../screens/post/ticket_upload_screen.dart';
 
 /// 앱의 라우팅 설정
 final GoRouter router = GoRouter(
@@ -24,6 +25,12 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/theme-preview',
       builder: (context, state) => const ThemePreviewScreen(),
+    ),
+
+    // 티켓 업로드 화면
+    GoRoute(
+      path: '/ticket-upload',
+      builder: (context, state) => const TicketUploadScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(
