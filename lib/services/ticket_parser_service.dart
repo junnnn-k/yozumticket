@@ -220,7 +220,7 @@ class TicketParserService {
   /// 신뢰도 계산 (0.0 ~ 1.0)
   double _calculateConfidence(
     DateTime? date,
-    Map<String, String>? teams,
+    Map<String, String?>? teams,
     String? stadium,
   ) {
     double score = 0.0;
