@@ -57,20 +57,28 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
       // 1. OCR 처리
       final RecognizedText recognizedText = await _ocrService.recognizeText(_ticketImage!);
 
-      // 2. 경기 정보 파싱
+      // 2. OCR 결과 검증
+      if (recognizedText.blocks.isEmpty) {
+        if (mounted) {
+          _showOcrFailureDialog('텍스트 인식 실패', '티켓 이미지에서 텍스트를 찾을 수 없습니다.\n다시 촬영하거나 수동으로 입력해주세요.');
+        }
+        return;
+      }
+
+      // 3. 경기 정보 파싱
       final GameInfo gameInfo = _parserService.parseTicketInfo(recognizedText);
 
-      // 3. 결과 저장
+      // 4. 결과 저장
       setState(() {
         _recognizedText = recognizedText;
         _parsedGameInfo = gameInfo;
       });
 
-      // 4. 상세 로그 출력 (OCR + 파싱)
+      // 5. 상세 로그 출력 (OCR + 파싱)
       _ocrService.printDetailedLog(recognizedText);
       _parserService.printParsingDetails(recognizedText, gameInfo);
 
-      // 5. OCR 결과 확인 화면으로 이동
+      // 6. OCR 결과 확인 화면으로 이동
       if (mounted) {
         context.push('/ocr-result', extra: {
           'ticketImage': _ticketImage!,
@@ -79,13 +87,46 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('OCR 처리 중 오류 발생: $e')),
-        );
+        _showOcrFailureDialog('OCR 처리 오류', 'OCR 처리 중 오류가 발생했습니다.\n다시 시도하거나 수동으로 입력해주세요.\n\n오류: $e');
       }
     } finally {
       setState(() => _isProcessingOcr = false);
     }
+  }
+
+  /// OCR 실패 다이얼로그
+  void _showOcrFailureDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              // 수동 입력 모드로 이동 (빈 GameInfo 전달)
+              context.push('/ocr-result', extra: {
+                'ticketImage': _ticketImage!,
+                'gameInfo': GameInfo(confidence: 0.0),
+              });
+            },
+            icon: const Icon(Icons.edit),
+            label: const Text('수동 입력'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 다음 단계로 이동 (OCR 처리)

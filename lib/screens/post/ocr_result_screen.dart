@@ -145,6 +145,29 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
   Widget _buildConfidenceBanner(ColorScheme colorScheme) {
     final confidence = widget.gameInfo.confidence;
     final isHighConfidence = confidence >= 0.7;
+    final isMediumConfidence = confidence >= 0.4;
+
+    // 누락된 필수 정보 확인
+    final missingFields = <String>[];
+    if (widget.gameInfo.date == null) missingFields.add('날짜');
+    if (widget.gameInfo.homeTeam == null) missingFields.add('홈팀');
+    if (widget.gameInfo.awayTeam == null) missingFields.add('원정팀');
+    if (widget.gameInfo.stadium == null) missingFields.add('구장');
+
+    String message;
+    if (isHighConfidence) {
+      message = '신뢰도: ${(confidence * 100).toStringAsFixed(0)}% - 정보가 정확히 인식되었습니다';
+    } else if (isMediumConfidence) {
+      message = '신뢰도: ${(confidence * 100).toStringAsFixed(0)}% - 일부 정보를 확인해주세요';
+      if (missingFields.isNotEmpty) {
+        message += '\n누락: ${missingFields.join(", ")}';
+      }
+    } else {
+      message = '신뢰도: ${(confidence * 100).toStringAsFixed(0)}% - 티켓 정보를 수동으로 입력해주세요';
+      if (missingFields.isNotEmpty) {
+        message += '\n누락: ${missingFields.join(", ")}';
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -152,30 +175,45 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
       decoration: BoxDecoration(
         color: isHighConfidence
             ? Colors.green.withValues(alpha: 0.1)
-            : Colors.orange.withValues(alpha: 0.1),
+            : isMediumConfidence
+                ? Colors.orange.withValues(alpha: 0.1)
+                : Colors.red.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isHighConfidence
               ? Colors.green.withValues(alpha: 0.3)
-              : Colors.orange.withValues(alpha: 0.3),
+              : isMediumConfidence
+                  ? Colors.orange.withValues(alpha: 0.3)
+                  : Colors.red.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            isHighConfidence ? Icons.check_circle : Icons.info_outline,
-            color: isHighConfidence ? Colors.green : Colors.orange,
+            isHighConfidence
+                ? Icons.check_circle
+                : isMediumConfidence
+                    ? Icons.info_outline
+                    : Icons.warning,
+            color: isHighConfidence
+                ? Colors.green
+                : isMediumConfidence
+                    ? Colors.orange
+                    : Colors.red,
             size: 20,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              isHighConfidence
-                  ? '신뢰도: ${(confidence * 100).toStringAsFixed(0)}% - 정보가 정확히 인식되었습니다'
-                  : '신뢰도: ${(confidence * 100).toStringAsFixed(0)}% - 아래 정보를 확인해주세요',
+              message,
               style: TextStyle(
                 fontSize: 13,
-                color: isHighConfidence ? Colors.green : Colors.orange,
+                color: isHighConfidence
+                    ? Colors.green
+                    : isMediumConfidence
+                        ? Colors.orange
+                        : Colors.red,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -392,7 +430,7 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
     );
   }
 
-  /// 하단 확인 버튼
+  /// 하단 버튼 (다시 스캔 + 정보 확인)
   Widget _buildBottomButton(ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -406,21 +444,46 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
           ),
         ],
       ),
-      child: ElevatedButton(
-        onPressed: _confirmAndNext,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
+          // 다시 스캔 버튼
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.refresh),
+              label: const Text('다시 스캔'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(color: colorScheme.primary),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
-        ),
-        child: const Text(
-          '정보 확인',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+          const SizedBox(width: 12),
+
+          // 정보 확인 버튼
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: _confirmAndNext,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                '정보 확인',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
