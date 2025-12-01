@@ -88,7 +88,7 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
   /// 파싱된 경기 정보 다이얼로그 표시
   void _showParsedInfoDialog(GameInfo gameInfo) {
     final colorScheme = Theme.of(context).colorScheme;
-    final dateFormat = DateFormat('yyyy년 M월 d일 (E)', 'ko_KR');
+    final dateFormat = DateFormat('yyyy-MM-dd');
 
     showDialog(
       context: context,
