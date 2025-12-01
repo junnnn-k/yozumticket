@@ -4,6 +4,7 @@ import '../../screens/splash/splash_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/theme_preview_screen.dart';
 import '../../screens/post/ticket_upload_screen.dart';
+import '../../screens/post/ocr_result_screen.dart';
 
 /// 앱의 라우팅 설정
 final GoRouter router = GoRouter(
@@ -31,6 +32,18 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/ticket-upload',
       builder: (context, state) => const TicketUploadScreen(),
+    ),
+
+    // OCR 결과 확인 화면
+    GoRoute(
+      path: '/ocr-result',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        return OcrResultScreen(
+          ticketImage: extra['ticketImage'],
+          gameInfo: extra['gameInfo'],
+        );
+      },
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:intl/intl.dart';
 import '../../services/image_service.dart';
 import '../../services/ocr_service.dart';
 import '../../services/ticket_parser_service.dart';
@@ -70,9 +70,12 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
       _ocrService.printDetailedLog(recognizedText);
       _parserService.printParsingDetails(recognizedText, gameInfo);
 
-      // 5. 사용자에게 파싱된 정보 표시
+      // 5. OCR 결과 확인 화면으로 이동
       if (mounted) {
-        _showParsedInfoDialog(gameInfo);
+        context.push('/ocr-result', extra: {
+          'ticketImage': _ticketImage!,
+          'gameInfo': gameInfo,
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -83,160 +86,6 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
     } finally {
       setState(() => _isProcessingOcr = false);
     }
-  }
-
-  /// 파싱된 경기 정보 다이얼로그 표시
-  void _showParsedInfoDialog(GameInfo gameInfo) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final dateFormat = DateFormat('yyyy-MM-dd');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              gameInfo.isComplete ? Icons.check_circle : Icons.warning,
-              color: gameInfo.isComplete ? Colors.green : Colors.orange,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            const Text('경기 정보 추출 결과'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 신뢰도
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: gameInfo.isHighConfidence
-                      ? Colors.green.withValues(alpha: 0.1)
-                      : Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      gameInfo.isHighConfidence ? Icons.thumb_up : Icons.info_outline,
-                      size: 20,
-                      color: gameInfo.isHighConfidence ? Colors.green : Colors.orange,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '신뢰도: ${(gameInfo.confidence * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: gameInfo.isHighConfidence ? Colors.green : Colors.orange,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 경기 정보
-              _buildInfoRow('날짜', gameInfo.date != null ? dateFormat.format(gameInfo.date!) : '인식 실패', gameInfo.date != null),
-              const SizedBox(height: 8),
-              _buildInfoRow('홈팀', gameInfo.homeTeam ?? '인식 실패', gameInfo.homeTeam != null),
-              const SizedBox(height: 8),
-              _buildInfoRow('원정팀', gameInfo.awayTeam ?? '인식 실패', gameInfo.awayTeam != null),
-              const SizedBox(height: 8),
-              _buildInfoRow('구장', gameInfo.stadium ?? '인식 실패', gameInfo.stadium != null),
-              const SizedBox(height: 8),
-              _buildInfoRow('좌석', gameInfo.seat ?? '인식 실패', gameInfo.seat != null),
-              const SizedBox(height: 8),
-              _buildInfoRow('가격', gameInfo.price != null ? '${gameInfo.price}원' : '인식 실패', gameInfo.price != null),
-              const SizedBox(height: 16),
-
-              // 안내 메시지
-              if (!gameInfo.isComplete)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '일부 정보를 인식하지 못했습니다.\n다음 단계에서 수동으로 입력할 수 있습니다.',
-                          style: TextStyle(fontSize: 12, color: Colors.orange),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: 14일차에 게시글 작성 화면으로 이동
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('14일차에 게시글 작성 화면이 추가됩니다')),
-              );
-            },
-            child: const Text('다음 단계'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 정보 행 위젯
-  Widget _buildInfoRow(String label, String value, bool isSuccess) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 60,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Row(
-            children: [
-              Icon(
-                isSuccess ? Icons.check_circle_outline : Icons.cancel_outlined,
-                size: 16,
-                color: isSuccess ? Colors.green : Colors.grey,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isSuccess ? Colors.black87 : Colors.grey,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 
   /// 다음 단계로 이동 (OCR 처리)
