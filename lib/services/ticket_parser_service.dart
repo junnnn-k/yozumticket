@@ -17,7 +17,7 @@ class TicketParserService {
     final price = extractPrice(fullText);
 
     // 신뢰도 계산 (추출된 필수 정보 개수 기반)
-    double confidence = _calculateConfidence(date, teams, stadium);
+    double confidence = _calculateConfidence(date, teams, stadium, seat, price);
 
     return GameInfo(
       date: date,
@@ -232,20 +232,28 @@ class TicketParserService {
     DateTime? date,
     Map<String, String?>? teams,
     String? stadium,
+    String? seat,
+    int? price,
   ) {
     double score = 0.0;
 
-    // 날짜 (30%)
-    if (date != null) score += 0.3;
+    // 날짜 (25% - 가장 중요)
+    if (date != null) score += 0.25;
 
-    // 홈팀 (25%)
-    if (teams != null && teams['home'] != null) score += 0.25;
+    // 홈팀 (15%)
+    if (teams != null && teams['home'] != null) score += 0.15;
 
-    // 원정팀 (25%)
-    if (teams != null && teams['away'] != null) score += 0.25;
+    // 원정팀 (15%)
+    if (teams != null && teams['away'] != null) score += 0.15;
 
-    // 구장 (20%)
-    if (stadium != null) score += 0.2;
+    // 구장 (15%)
+    if (stadium != null) score += 0.15;
+
+    // 좌석 (15%)
+    if (seat != null) score += 0.15;
+
+    // 가격 (15%)
+    if (price != null) score += 0.15;
 
     return score;
   }
