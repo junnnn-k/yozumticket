@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../../screens/splash/splash_screen.dart';
+import '../../screens/auth/login_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/theme_preview_screen.dart';
 import '../../screens/post/ticket_upload_screen.dart';
@@ -20,6 +21,12 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) => const SplashScreen(),
+    ),
+
+    // 로그인 화면
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
     ),
 
     // 메인 화면 (하단 탭 네비게이션)
