@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
 import '../../core/constants/sizes.dart';
+import '../../models/post_model.dart';
+import '../../services/post_service.dart';
 import '../archive/archive_screen.dart';
 
 /// 메인 화면 (하단 탭 네비게이션)
@@ -92,8 +97,60 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 /// 홈 탭
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  final PostService _postService = PostService();
+  List<Post> _recentPosts = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentPosts();
+  }
+
+  /// 최근 게시글 불러오기
+  Future<void> _loadRecentPosts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // 로그인하지 않은 경우 빈 리스트
+        setState(() {
+          _recentPosts = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 내 게시글 최대 5개
+      final posts = await _postService.getMyPosts(user.uid, limit: 5);
+
+      if (!mounted) return;
+
+      setState(() {
+        _recentPosts = posts;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '게시글을 불러오는데 실패했습니다';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +161,6 @@ class _HomeTab extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.palette),
             onPressed: () {
-              // TODO: 테마 미리보기 화면으로 이동
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('테마 설정 (추후 구현)')),
               );
@@ -120,41 +176,87 @@ class _HomeTab extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSizes.md),
-        children: [
-          // 환영 메시지
-          _WelcomeCard(),
-          const SizedBox(height: AppSizes.lg),
+      body: RefreshIndicator(
+        onRefresh: _loadRecentPosts,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSizes.md),
+          children: [
+            // 환영 메시지
+            _WelcomeCard(),
+            const SizedBox(height: AppSizes.lg),
 
-          // 빠른 추가 버튼
-          _QuickAddCard(),
-          const SizedBox(height: AppSizes.lg),
+            // 빠른 추가 버튼
+            _QuickAddCard(),
+            const SizedBox(height: AppSizes.lg),
 
-          // 최근 기록 섹션
-          _SectionHeader(title: '최근 관람한 경기'),
-          const SizedBox(height: AppSizes.md),
+            // 최근 기록 섹션
+            _SectionHeader(title: '최근 관람한 경기'),
+            const SizedBox(height: AppSizes.md),
 
-          // 샘플 티켓 카드
-          _TicketCard(
-            homeTeam: '두산',
-            awayTeam: 'LG',
-            date: '2025.11.25',
-            stadium: '잠실야구장',
-            seat: '1루 블루석',
-            rating: 5,
-          ),
-          const SizedBox(height: AppSizes.md),
-
-          _TicketCard(
-            homeTeam: '키움',
-            awayTeam: '삼성',
-            date: '2025.11.20',
-            stadium: '고척 스카이돔',
-            seat: '외야석',
-            rating: 4,
-          ),
-        ],
+            // 최근 게시글 리스트
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_error != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadRecentPosts,
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_recentPosts.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.inbox_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '아직 기록한 경기가 없습니다',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '티켓을 추가해서 첫 기록을 남겨보세요!',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ..._recentPosts.map((post) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSizes.md),
+                  child: _TicketCard(post: post),
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
@@ -290,30 +392,19 @@ class _SectionHeader extends StatelessWidget {
 
 /// 티켓 카드
 class _TicketCard extends StatelessWidget {
-  final String homeTeam;
-  final String awayTeam;
-  final String date;
-  final String stadium;
-  final String seat;
-  final int rating;
+  final Post post;
 
-  const _TicketCard({
-    required this.homeTeam,
-    required this.awayTeam,
-    required this.date,
-    required this.stadium,
-    required this.seat,
-    required this.rating,
-  });
+  const _TicketCard({required this.post});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final dateFormat = DateFormat('yyyy.MM.dd');
 
     return Card(
       child: InkWell(
         onTap: () {
-          // TODO: 티켓 상세 화면으로 이동
+          context.push('/post-detail/${post.id}');
         },
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
         child: Padding(
@@ -321,29 +412,54 @@ class _TicketCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 티켓 이미지 (플레이스홀더)
+              // 티켓 이미지
               Container(
                 height: 150,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(AppSizes.radiusSm),
                 ),
-                child: Center(
-                  child: Icon(
-                    Icons.confirmation_number,
-                    size: 64,
-                    color: theme.colorScheme.primary.withOpacity(0.3),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                  child: CachedNetworkImage(
+                    imageUrl: post.ticketImageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    placeholder: (context, url) => Center(
+                      child: CircularProgressIndicator(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Center(
+                      child: Icon(
+                        Icons.confirmation_number,
+                        size: 64,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSizes.md),
 
-              // 경기 정보
+              // 제목
               Text(
-                '$homeTeam vs $awayTeam',
+                post.title,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+
+              // 경기 정보
+              Text(
+                '${post.gameInfo.homeTeam ?? '-'} vs ${post.gameInfo.awayTeam ?? '-'}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: AppSizes.sm),
@@ -353,29 +469,31 @@ class _TicketCard extends StatelessWidget {
                   Icon(
                     Icons.calendar_today,
                     size: 14,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    date,
+                    post.gameInfo.date != null
+                        ? dateFormat.format(post.gameInfo.date!)
+                        : '-',
                     style: TextStyle(
                       fontSize: 13,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(width: AppSizes.md),
                   Icon(
                     Icons.stadium,
                     size: 14,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '$stadium · $seat',
+                      '${post.gameInfo.stadium ?? '-'}${post.gameInfo.seat != null ? ' · ${post.gameInfo.seat}' : ''}',
                       style: TextStyle(
                         fontSize: 13,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -389,7 +507,7 @@ class _TicketCard extends StatelessWidget {
                 children: List.generate(
                   5,
                   (index) => Icon(
-                    index < rating ? Icons.star : Icons.star_border,
+                    index < post.rating.floor() ? Icons.star : Icons.star_border,
                     size: 16,
                     color: theme.colorScheme.secondary,
                   ),
@@ -510,6 +628,24 @@ class _ProfileTab extends StatelessWidget {
             title: const Text('앱 정보'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {},
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.bug_report, color: Colors.orange),
+            title: const Text('Firestore 테스트 (디버그)'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              context.push('/firestore-test');
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.cloud_upload, color: Colors.blue),
+            title: const Text('Storage 테스트 (디버그)'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              context.push('/storage-test');
+            },
           ),
           const Divider(height: 1),
           ListTile(
