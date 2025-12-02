@@ -59,18 +59,34 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     // Firebase Auth 상태 확인
-    final user = FirebaseAuth.instance.currentUser;
+    User? user = FirebaseAuth.instance.currentUser;
+
+    // 로그인되지 않은 경우 자동으로 익명 로그인
+    if (user == null) {
+      try {
+        debugPrint('🔐 익명 로그인 시도 중...');
+        final credential = await FirebaseAuth.instance.signInAnonymously();
+        user = credential.user;
+        debugPrint('✅ 익명 로그인 성공: ${user?.uid}');
+      } catch (e) {
+        debugPrint('❌ 익명 로그인 실패: $e');
+        // Firebase Console에서 Anonymous Auth를 활성화해야 합니다
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('로그인 실패: Firebase Console에서 Anonymous 인증을 활성화해주세요'),
+              duration: const Duration(seconds: 5),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
 
     if (!mounted) return;
 
-    if (user != null) {
-      // 로그인 상태 - 메인 화면으로 이동
-      context.go('/main');
-    } else {
-      // 비로그인 상태 - 로그인 화면으로 이동
-      // 현재는 메인 화면으로 이동 (추후 로그인 화면 구현 시 변경)
-      context.go('/main');
-    }
+    // 메인 화면으로 이동
+    context.go('/main');
   }
 
   @override
