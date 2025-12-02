@@ -20,9 +20,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
+  // 홈 탭에 접근하기 위한 GlobalKey
+  final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
+
   // 탭 화면 리스트
-  final List<Widget> _screens = [
-    const _HomeTab(),
+  late final List<Widget> _screens = [
+    _HomeTab(key: _homeTabKey),
     const ArchiveScreen(),
     const _FriendsTab(),
     const _ProfileTab(),
@@ -86,8 +89,11 @@ class _MainScreenState extends State<MainScreen> {
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
-              onPressed: () {
-                context.push('/ticket-upload');
+              onPressed: () async {
+                // 티켓 업로드 화면으로 이동 (결과 대기)
+                await context.push('/ticket-upload');
+                // 돌아왔을 때 홈 탭 새로고침
+                _homeTabKey.currentState?._loadRecentPosts();
               },
               child: const Icon(Icons.add),
             )
@@ -252,7 +258,10 @@ class _HomeTabState extends State<_HomeTab> {
               ..._recentPosts.map((post) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: AppSizes.md),
-                  child: _TicketCard(post: post),
+                  child: _TicketCard(
+                    post: post,
+                    onPostDeleted: _loadRecentPosts,
+                  ),
                 );
               }),
           ],
@@ -393,8 +402,12 @@ class _SectionHeader extends StatelessWidget {
 /// 티켓 카드
 class _TicketCard extends StatelessWidget {
   final Post post;
+  final VoidCallback onPostDeleted;
 
-  const _TicketCard({required this.post});
+  const _TicketCard({
+    required this.post,
+    required this.onPostDeleted,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -403,8 +416,13 @@ class _TicketCard extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        onTap: () {
-          context.push('/post-detail/${post.id}');
+        onTap: () async {
+          // 게시글 상세 화면으로 이동 (삭제 결과 대기)
+          final result = await context.push('/post-detail/${post.id}');
+          // 게시글이 삭제된 경우 새로고침
+          if (result == true) {
+            onPostDeleted();
+          }
         },
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
         child: Padding(

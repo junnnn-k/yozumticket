@@ -210,4 +210,38 @@ class ImageService {
 
     return imageFile;
   }
+
+  /// 다중 이미지 선택 (갤러리)
+  ///
+  /// [maxImages] 최대 선택 가능 개수 (기본값: 10)
+  ///
+  /// Returns:
+  ///   선택된 이미지 파일 리스트
+  Future<List<File>> pickMultipleImages({int maxImages = 10}) async {
+    try {
+      // 권한 요청
+      final hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        debugPrint('저장소 권한이 거부되었습니다');
+        return [];
+      }
+
+      final List<XFile> images = await _picker.pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (images.isEmpty) return [];
+
+      // 최대 개수 제한
+      final List<XFile> limitedImages = images.take(maxImages).toList();
+
+      // XFile을 File로 변환
+      return limitedImages.map((xFile) => File(xFile.path)).toList();
+    } catch (e) {
+      debugPrint('다중 이미지 선택 오류: $e');
+      return [];
+    }
+  }
 }

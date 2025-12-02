@@ -52,6 +52,7 @@ dependencies:
   image_cropper: ^8.0.2
   cached_network_image: ^3.4.1
   permission_handler: ^11.3.1
+  flutter_image_compress: ^2.3.0
 
   # OCR
   google_mlkit_text_recognition: ^0.15.0

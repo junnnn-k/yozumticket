@@ -183,8 +183,11 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
         const SnackBar(content: Text('게시글이 작성되었습니다')),
       );
 
-      // 메인 화면으로 이동 (모든 이전 화면 제거)
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // 메인 화면으로 돌아가기 (true = 게시글 작성됨)
+      // popUntil을 사용하여 /main 경로가 나올 때까지 pop
+      Navigator.of(context).popUntil((route) {
+        return route.settings.name == '/main' || route.isFirst;
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

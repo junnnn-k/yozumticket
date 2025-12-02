@@ -103,14 +103,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
 
     try {
+      debugPrint('🗑️ 게시글 삭제 시작: postId=${_post!.id}, userId=${_post!.userId}');
+
       // Storage에서 이미지 삭제
+      debugPrint('📦 Storage 이미지 삭제 시도...');
       await _storageService.deletePostImages(
         userId: _post!.userId,
         postId: _post!.id,
       );
+      debugPrint('✅ Storage 이미지 삭제 완료');
 
       // Firestore에서 게시글 삭제
+      debugPrint('📄 Firestore 게시글 삭제 시도...');
       await _postService.deletePost(_post!.id);
+      debugPrint('✅ Firestore 게시글 삭제 완료');
 
       if (!mounted) return;
 

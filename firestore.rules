@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== 헬퍼 함수 =====
+
+    // 인증된 사용자인지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 자신의 문서인지 확인
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // 게시글 작성자인지 확인
+    function isPostOwner() {
+      return request.auth.uid == resource.data.userId;
+    }
+
+    // ===== Users 컬렉션 =====
+    match /users/{userId} {
+      // 읽기: 인증된 사용자만 가능
+      allow read: if isAuthenticated();
+
+      // 생성/수정: 본인만 가능
+      allow create, update: if isAuthenticated() && isOwner(userId);
+
+      // 삭제: 본인만 가능
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ===== Posts 컬렉션 =====
+    match /posts/{postId} {
+      // 읽기 규칙
+      allow read: if
+        // 본인의 게시글은 항상 읽기 가능
+        isPostOwner()
+        // 전체 공개 게시글은 인증된 사용자 누구나 읽기 가능
+        || (isAuthenticated() && resource.data.privacy == 'public')
+        // 친구 공개는 일단 허용 (나중에 친구 관계 확인 로직 추가)
+        || (isAuthenticated() && resource.data.privacy == 'friends');
+
+      // 생성 규칙
+      allow create: if
+        isAuthenticated()
+        // 작성자 ID가 현재 사용자와 일치
+        && request.resource.data.userId == request.auth.uid
+        // 필수 필드 존재 확인
+        && request.resource.data.keys().hasAll([
+          'userId', 'ticketImageUrl', 'gameInfo', 'title',
+          'privacy', 'createdAt', 'updatedAt'
+        ])
+        // 유효한 프라이버시 설정
+        && request.resource.data.privacy in ['private', 'friends', 'public']
+        // 별점 범위 확인 (0-5)
+        && request.resource.data.rating >= 0
+        && request.resource.data.rating <= 5;
+
+      // 수정 규칙
+      allow update: if
+        isAuthenticated()
+        // 본인의 게시글만 수정 가능
+        && isPostOwner()
+        // userId는 변경 불가
+        && request.resource.data.userId == resource.data.userId
+        // updatedAt은 현재 시간으로 갱신
+        && request.resource.data.updatedAt == request.time;
+
+      // 삭제 규칙
+      allow delete: if isAuthenticated() && isPostOwner();
+    }
+
+    // ===== SharedArchives 컬렉션 (나중에 추가) =====
+    match /sharedArchives/{archiveId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ===== Friendships 컬렉션 (나중에 추가) =====
+    match /friendships/{friendshipId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ===== 기타 모든 문서 접근 거부 =====
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

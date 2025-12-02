@@ -1,0 +1,71 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ===== 헬퍼 함수 =====
+
+    // 인증된 사용자인지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 본인 폴더인지 확인
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // 🔧 테스트용: test_user_123 허용
+    function isTestUser(userId) {
+      return userId == 'test_user_123';
+    }
+
+    // 이미지 파일인지 확인
+    function isImageFile() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // 파일 크기 확인 (5MB 이하)
+    function isFileSizeValid() {
+      return request.resource.size <= 5 * 1024 * 1024;
+    }
+
+    // ===== Users 폴더 =====
+    match /users/{userId} {
+
+      // 프로필 이미지
+      match /profile/{fileName} {
+        // 읽기: 인증된 사용자 누구나
+        allow read: if isAuthenticated();
+
+        // 쓰기: 본인만 가능, 이미지 파일, 5MB 이하
+        allow write: if
+          (isOwner(userId) || isTestUser(userId))
+          && isImageFile()
+          && isFileSizeValid();
+
+        // 삭제: 본인만 가능
+        allow delete: if isOwner(userId) || isTestUser(userId);
+      }
+
+      // 게시글 이미지
+      match /posts/{postId}/{fileName} {
+        // 읽기: 누구나 가능 (🔧 테스트용 - 프로덕션에서는 isAuthenticated() 추가 필요)
+        allow read: if true;
+
+        // 쓰기: 본인만 가능 또는 test_user_123 경로, 이미지 파일, 5MB 이하
+        allow write: if
+          (isOwner(userId) || isTestUser(userId))
+          && isImageFile()
+          && isFileSizeValid();
+
+        // 삭제: 본인만 가능 또는 test_user_123 경로
+        allow delete: if isOwner(userId) || isTestUser(userId);
+      }
+    }
+
+    // ===== 기타 모든 파일 접근 거부 =====
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
