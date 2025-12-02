@@ -6,6 +6,9 @@ import '../../screens/theme_preview_screen.dart';
 import '../../screens/post/ticket_upload_screen.dart';
 import '../../screens/post/ocr_result_screen.dart';
 import '../../screens/post/post_create_screen.dart';
+import '../../screens/post/post_detail_screen.dart';
+import '../../screens/post/post_edit_screen.dart';
+import '../../models/post_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
 import '../../screens/debug/storage_test_screen.dart';
 
@@ -58,6 +61,24 @@ final GoRouter router = GoRouter(
           ticketImage: extra['ticketImage'],
           gameInfo: extra['gameInfo'],
         );
+      },
+    ),
+
+    // 게시글 상세 화면
+    GoRoute(
+      path: '/post-detail/:postId',
+      builder: (context, state) {
+        final postId = state.pathParameters['postId']!;
+        return PostDetailScreen(postId: postId);
+      },
+    ),
+
+    // 게시글 수정 화면
+    GoRoute(
+      path: '/post-edit',
+      builder: (context, state) {
+        final post = state.extra as Post;
+        return PostEditScreen(post: post);
       },
     ),
 
