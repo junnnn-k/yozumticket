@@ -5,6 +5,9 @@ import '../../screens/main/main_screen.dart';
 import '../../screens/theme_preview_screen.dart';
 import '../../screens/post/ticket_upload_screen.dart';
 import '../../screens/post/ocr_result_screen.dart';
+import '../../screens/post/post_create_screen.dart';
+import '../../screens/debug/firestore_test_screen.dart';
+import '../../screens/debug/storage_test_screen.dart';
 
 /// 앱의 라우팅 설정
 final GoRouter router = GoRouter(
@@ -44,6 +47,30 @@ final GoRouter router = GoRouter(
           gameInfo: extra['gameInfo'],
         );
       },
+    ),
+
+    // 게시글 작성 화면
+    GoRoute(
+      path: '/post-create',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        return PostCreateScreen(
+          ticketImage: extra['ticketImage'],
+          gameInfo: extra['gameInfo'],
+        );
+      },
+    ),
+
+    // Firestore 테스트 화면 (디버그용)
+    GoRoute(
+      path: '/firestore-test',
+      builder: (context, state) => const FirestoreTestScreen(),
+    ),
+
+    // Storage 테스트 화면 (디버그용)
+    GoRoute(
+      path: '/storage-test',
+      builder: (context, state) => const StorageTestScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

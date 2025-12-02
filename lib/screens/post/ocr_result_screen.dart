@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/game_info.dart';
 import '../../core/constants/baseball_data.dart';
@@ -24,10 +25,16 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
   late TextEditingController _dateController;
   late TextEditingController _seatController;
   late TextEditingController _priceController;
+  late TextEditingController _customHomeTeamController;
+  late TextEditingController _customAwayTeamController;
+  late TextEditingController _customStadiumController;
 
   String? _selectedHomeTeam;
   String? _selectedAwayTeam;
   String? _selectedStadium;
+
+  // "기타" 선택 상수
+  static const String customOption = 'OTHER';
 
   @override
   void initState() {
@@ -43,11 +50,33 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
     _priceController = TextEditingController(
       text: widget.gameInfo.price?.toString() ?? '',
     );
+    _customHomeTeamController = TextEditingController();
+    _customAwayTeamController = TextEditingController();
+    _customStadiumController = TextEditingController();
 
-    // 드롭다운 초기값
-    _selectedHomeTeam = widget.gameInfo.homeTeam;
-    _selectedAwayTeam = widget.gameInfo.awayTeam;
-    _selectedStadium = widget.gameInfo.stadium;
+    // 드롭다운 초기값 (OCR에서 인식 못한 경우 "기타"로 설정하고 원문 표시)
+    _selectedHomeTeam = _isValidTeam(widget.gameInfo.homeTeam)
+        ? widget.gameInfo.homeTeam
+        : (widget.gameInfo.homeTeam != null ? customOption : null);
+
+    _selectedAwayTeam = _isValidTeam(widget.gameInfo.awayTeam)
+        ? widget.gameInfo.awayTeam
+        : (widget.gameInfo.awayTeam != null ? customOption : null);
+
+    _selectedStadium = _isValidStadium(widget.gameInfo.stadium)
+        ? widget.gameInfo.stadium
+        : (widget.gameInfo.stadium != null ? customOption : null);
+
+    // "기타" 선택된 경우 커스텀 필드에 OCR 원문 입력
+    if (_selectedHomeTeam == customOption && widget.gameInfo.homeTeam != null) {
+      _customHomeTeamController.text = widget.gameInfo.homeTeam!;
+    }
+    if (_selectedAwayTeam == customOption && widget.gameInfo.awayTeam != null) {
+      _customAwayTeamController.text = widget.gameInfo.awayTeam!;
+    }
+    if (_selectedStadium == customOption && widget.gameInfo.stadium != null) {
+      _customStadiumController.text = widget.gameInfo.stadium!;
+    }
   }
 
   @override
@@ -55,7 +84,21 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
     _dateController.dispose();
     _seatController.dispose();
     _priceController.dispose();
+    _customHomeTeamController.dispose();
+    _customAwayTeamController.dispose();
+    _customStadiumController.dispose();
     super.dispose();
+  }
+
+  /// 유효한 팀명인지 확인
+  bool _isValidTeam(String? team) {
+    return team != null && BaseballData.teams.containsKey(team);
+  }
+
+  /// 유효한 구장명인지 확인
+  bool _isValidStadium(String? stadium) {
+    return stadium != null &&
+           BaseballData.teamHomeStadium.values.contains(stadium);
   }
 
   /// 날짜 선택 다이얼로그
@@ -84,9 +127,34 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
       return;
     }
 
-    // TODO: 15일차에 게시글 작성 화면으로 이동
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('15일차에 게시글 작성 화면이 추가됩니다')),
+    // GameInfo 업데이트 (사용자가 수정한 정보 반영)
+    final updatedGameInfo = GameInfo(
+      date: DateTime.tryParse(_dateController.text),
+      homeTeam: _selectedHomeTeam == customOption
+          ? _customHomeTeamController.text.trim()
+          : _selectedHomeTeam,
+      awayTeam: _selectedAwayTeam == customOption
+          ? _customAwayTeamController.text.trim()
+          : _selectedAwayTeam,
+      stadium: _selectedStadium == customOption
+          ? _customStadiumController.text.trim()
+          : _selectedStadium,
+      seat: _seatController.text.trim().isEmpty
+          ? null
+          : _seatController.text.trim(),
+      price: _priceController.text.trim().isEmpty
+          ? null
+          : int.tryParse(_priceController.text.trim()),
+      confidence: widget.gameInfo.confidence,
+    );
+
+    // 게시글 작성 화면으로 이동
+    context.push(
+      '/post-create',
+      extra: {
+        'ticketImage': widget.ticketImage,
+        'gameInfo': updatedGameInfo,
+      },
     );
   }
 
@@ -246,6 +314,7 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
           _buildTeamDropdown(
             label: '홈팀',
             value: _selectedHomeTeam,
+            customController: _customHomeTeamController,
             onChanged: (value) => setState(() => _selectedHomeTeam = value),
           ),
           const SizedBox(height: 16),
@@ -254,6 +323,7 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
           _buildTeamDropdown(
             label: '원정팀',
             value: _selectedAwayTeam,
+            customController: _customAwayTeamController,
             onChanged: (value) => setState(() => _selectedAwayTeam = value),
           ),
           const SizedBox(height: 16),
@@ -272,9 +342,9 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
 
           // 가격
           _buildTextField(
-            label: '가격',
+            label: '가격 (선택)',
             controller: _priceController,
-            hint: '예: 15000',
+            hint: '입력하지 않아도 됩니다',
             keyboardType: TextInputType.number,
             suffix: const Text('원'),
           ),
@@ -328,6 +398,7 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
   Widget _buildTeamDropdown({
     required String label,
     required String? value,
+    required TextEditingController customController,
     required ValueChanged<String?> onChanged,
   }) {
     return Column(
@@ -344,12 +415,20 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
         DropdownButtonFormField<String>(
           value: value,
           hint: Text('$label 선택'),
-          items: BaseballData.teams.keys.map((team) {
-            return DropdownMenuItem(
-              value: team,
-              child: Text(BaseballData.teams[team]!),
-            );
-          }).toList(),
+          items: [
+            // 기존 10개 팀
+            ...BaseballData.teams.keys.map((team) {
+              return DropdownMenuItem(
+                value: team,
+                child: Text(BaseballData.teams[team]!),
+              );
+            }),
+            // "기타" 옵션
+            const DropdownMenuItem(
+              value: customOption,
+              child: Text('기타 (직접 입력)'),
+            ),
+          ],
           onChanged: onChanged,
           decoration: InputDecoration(
             border: OutlineInputBorder(
@@ -357,6 +436,21 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
             ),
           ),
         ),
+        // "기타" 선택 시 직접 입력 필드 표시
+        if (value == customOption) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: customController,
+            decoration: InputDecoration(
+              hintText: '$label 직접 입력 (예: 동군, 서군)',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.amber.withValues(alpha: 0.05),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -379,12 +473,20 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
         DropdownButtonFormField<String>(
           value: _selectedStadium,
           hint: const Text('구장 선택'),
-          items: stadiums.map((stadium) {
-            return DropdownMenuItem(
-              value: stadium,
-              child: Text(stadium),
-            );
-          }).toList(),
+          items: [
+            // 기존 9개 구장
+            ...stadiums.map((stadium) {
+              return DropdownMenuItem(
+                value: stadium,
+                child: Text(stadium),
+              );
+            }),
+            // "기타" 옵션
+            const DropdownMenuItem(
+              value: customOption,
+              child: Text('기타 (직접 입력)'),
+            ),
+          ],
           onChanged: (value) => setState(() => _selectedStadium = value),
           decoration: InputDecoration(
             border: OutlineInputBorder(
@@ -392,6 +494,21 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
             ),
           ),
         ),
+        // "기타" 선택 시 직접 입력 필드 표시
+        if (_selectedStadium == customOption) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _customStadiumController,
+            decoration: InputDecoration(
+              hintText: '구장 직접 입력 (예: 울산문수구장)',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.amber.withValues(alpha: 0.05),
+            ),
+          ),
+        ],
       ],
     );
   }
