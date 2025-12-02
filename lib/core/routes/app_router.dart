@@ -9,6 +9,7 @@ import '../../screens/post/ocr_result_screen.dart';
 import '../../screens/post/post_create_screen.dart';
 import '../../screens/post/post_detail_screen.dart';
 import '../../screens/post/post_edit_screen.dart';
+import '../../screens/profile/profile_edit_screen.dart';
 import '../../models/post_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
 import '../../screens/debug/storage_test_screen.dart';
@@ -87,6 +88,12 @@ final GoRouter router = GoRouter(
         final post = state.extra as Post;
         return PostEditScreen(post: post);
       },
+    ),
+
+    // 프로필 수정 화면
+    GoRoute(
+      path: '/profile-edit',
+      builder: (context, state) => const ProfileEditScreen(),
     ),
 
     // Firestore 테스트 화면 (디버그용)

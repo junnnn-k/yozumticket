@@ -692,10 +692,7 @@ class _ProfileTab extends StatelessWidget {
               title: const Text('프로필 수정'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {
-                // TODO: 프로필 수정 화면으로 이동 (22일차 구현 예정)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('프로필 수정 (추후 구현)')),
-                );
+                context.push('/profile-edit');
               },
             ),
             const Divider(height: 1),

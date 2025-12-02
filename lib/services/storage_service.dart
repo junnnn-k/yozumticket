@@ -261,4 +261,80 @@ class StorageService {
     final double sizeMB = await getFileSizeMB(file);
     return sizeMB <= maxSizeMB;
   }
+
+  /// 프로필 이미지 업로드
+  ///
+  /// [userId]: 사용자 ID
+  /// [imageFile]: 업로드할 이미지 파일
+  ///
+  /// Returns: 업로드된 이미지의 다운로드 URL
+  Future<String> uploadProfileImage({
+    required String userId,
+    required File imageFile,
+  }) async {
+    try {
+      // 1. 이미지 압축 (프로필 이미지는 작게)
+      final compressedFile = await compressImage(
+        imageFile,
+        quality: 85,
+        maxWidth: 512, // 프로필 이미지는 512px면 충분
+      );
+
+      // 2. Storage 경로 설정
+      final String fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String storagePath = 'users/$userId/profile/$fileName';
+
+      // 3. 업로드
+      final Reference ref = _storage.ref().child(storagePath);
+      final UploadTask uploadTask = ref.putFile(compressedFile);
+
+      // 4. 업로드 완료 대기
+      final TaskSnapshot snapshot = await uploadTask;
+
+      // 5. 다운로드 URL 반환
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      print('[StorageService] Profile image uploaded: $downloadUrl');
+
+      return downloadUrl;
+    } catch (e) {
+      print('[StorageService] Profile image upload failed: $e');
+      rethrow;
+    }
+  }
+
+  /// 프로필 이미지 삭제
+  ///
+  /// [imageUrl]: 삭제할 이미지 URL
+  Future<void> deleteProfileImage(String imageUrl) async {
+    try {
+      if (imageUrl.isEmpty) return;
+
+      // URL에서 Storage 경로 추출
+      final Uri uri = Uri.parse(imageUrl);
+      String? encodedPath;
+      try {
+        encodedPath = uri.pathSegments.firstWhere(
+          (segment) => segment.contains('users%2F') || segment.contains('users/'),
+        );
+      } catch (e) {
+        // 경로를 찾지 못한 경우
+        print('[StorageService] Invalid profile image URL: $imageUrl');
+        return;
+      }
+
+      if (encodedPath == null || encodedPath.isEmpty) {
+        print('[StorageService] Invalid profile image URL: $imageUrl');
+        return;
+      }
+
+      final String decodedPath = Uri.decodeComponent(encodedPath);
+      final Reference ref = _storage.ref().child(decodedPath);
+
+      await ref.delete();
+      print('[StorageService] Profile image deleted: $decodedPath');
+    } catch (e) {
+      print('[StorageService] Profile image deletion failed: $e');
+      // 프로필 이미지 삭제 실패는 치명적이지 않으므로 에러를 throw하지 않음
+    }
+  }
 }
