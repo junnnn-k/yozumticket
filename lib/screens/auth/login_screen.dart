@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 
 /// 로그인 화면
@@ -28,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       // 로그인 성공: 메인 화면으로 이동
-      Navigator.of(context).pushReplacementNamed('/main');
+      context.go('/main');
     } else {
       // 로그인 실패 또는 취소
       if (authProvider.errorMessage != null) {
