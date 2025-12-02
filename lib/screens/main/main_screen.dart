@@ -104,7 +104,7 @@ class _MainScreenState extends State<MainScreen> {
 
 /// 홈 탭
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({super.key});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
