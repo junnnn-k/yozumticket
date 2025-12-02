@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/sizes.dart';
+import '../../services/user_service.dart';
 
 /// Splash 화면
 /// - 앱 로고 표시
@@ -65,10 +66,33 @@ class _SplashScreenState extends State<SplashScreen>
       // 미로그인 상태: 로그인 화면으로 이동
       debugPrint('🔐 미로그인 상태: 로그인 화면으로 이동');
       context.go('/login');
-    } else {
-      // 로그인 상태: 메인 화면으로 이동
-      debugPrint('✅ 로그인 상태: ${user.email ?? user.uid}');
-      context.go('/main');
+      return;
+    }
+
+    // Firebase Auth 사용자가 있으면 Firestore UserModel도 확인
+    try {
+      final userService = UserService();
+      final userModel = await userService.getUser(user.uid);
+
+      if (!mounted) return;
+
+      if (userModel == null) {
+        // UserModel이 없으면 로그아웃 후 로그인 화면으로 이동
+        debugPrint('⚠️ UserModel이 없습니다. 로그아웃 후 재로그인 필요');
+        await FirebaseAuth.instance.signOut();
+        context.go('/login');
+      } else {
+        // 정상 로그인: 메인 화면으로 이동
+        debugPrint('✅ 로그인 상태: ${user.email ?? user.uid}');
+        context.go('/main');
+      }
+    } catch (e) {
+      // 오류 발생 시 로그아웃 후 로그인 화면으로 이동
+      debugPrint('❌ 사용자 정보 확인 실패: $e');
+      if (mounted) {
+        await FirebaseAuth.instance.signOut();
+        context.go('/login');
+      }
     }
   }
 
