@@ -9,12 +9,11 @@ class PostService {
   /// 게시글 생성
   Future<String> createPost(Post post) async {
     try {
-      // 새 문서 ID 생성 (자동)
-      final docRef = _firestore.collection(_collectionName).doc();
+      // 제공된 ID 사용 (이미 Storage 업로드에 사용된 ID)
+      final docRef = _firestore.collection(_collectionName).doc(post.id);
 
-      // ID를 포함한 Post 객체 생성
+      // 타임스탬프 업데이트
       final newPost = post.copyWith(
-        id: docRef.id,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -22,7 +21,9 @@ class PostService {
       // Firestore에 저장
       await docRef.set(newPost.toJson());
 
-      return docRef.id;
+      print('✅ Firestore 저장 완료: postId=${post.id}');
+
+      return post.id;
     } catch (e) {
       throw Exception('게시글 작성 실패: $e');
     }

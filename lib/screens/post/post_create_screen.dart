@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/game_info.dart';
 import '../../models/post_model.dart';
 import '../../services/image_service.dart';
@@ -134,10 +135,11 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
     });
 
     try {
-      // 1. 게시글 ID 생성 (Firestore 자동 ID)
-      final postId = DateTime.now().millisecondsSinceEpoch.toString();
+      // 1. Firestore Document ID 먼저 생성 (Storage와 Firestore에서 동일 ID 사용)
+      final postId = FirebaseFirestore.instance.collection('posts').doc().id;
+      debugPrint('📝 생성된 postId: $postId');
 
-      // 2. 티켓 이미지 업로드
+      // 2. 티켓 이미지 업로드 (Firestore ID 사용)
       final ticketImageUrl = await _storageService.uploadTicketImage(
         imageFile: widget.ticketImage,
         userId: user.uid,
