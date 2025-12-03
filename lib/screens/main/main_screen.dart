@@ -26,12 +26,21 @@ class _MainScreenState extends State<MainScreen> {
   // 홈 탭에 접근하기 위한 GlobalKey
   final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
 
+  // 프로필 탭에 접근하기 위한 GlobalKey
+  final GlobalKey<_ProfileTabState> _profileTabKey = GlobalKey<_ProfileTabState>();
+
   // 탭 화면 리스트
   late final List<Widget> _screens = [
-    _HomeTab(key: _homeTabKey),
+    _HomeTab(
+      key: _homeTabKey,
+      onStatsNeedRefresh: () {
+        // 게시글 삭제 시 프로필 탭 통계도 새로고침
+        _profileTabKey.currentState?._loadStats();
+      },
+    ),
     const ArchiveScreen(),
     const _FriendsTab(),
-    const _ProfileTab(),
+    _ProfileTab(key: _profileTabKey),
   ];
 
   @override
@@ -95,8 +104,9 @@ class _MainScreenState extends State<MainScreen> {
               onPressed: () async {
                 // 티켓 업로드 화면으로 이동 (결과 대기)
                 await context.push('/ticket-upload');
-                // 돌아왔을 때 홈 탭 새로고침
+                // 돌아왔을 때 홈 탭 및 프로필 탭 새로고침
                 _homeTabKey.currentState?._loadRecentPosts();
+                _profileTabKey.currentState?._loadStats();
               },
               child: const Icon(Icons.add),
             )
@@ -107,7 +117,9 @@ class _MainScreenState extends State<MainScreen> {
 
 /// 홈 탭
 class _HomeTab extends StatefulWidget {
-  const _HomeTab({super.key});
+  final VoidCallback? onStatsNeedRefresh;
+
+  const _HomeTab({super.key, this.onStatsNeedRefresh});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -263,7 +275,10 @@ class _HomeTabState extends State<_HomeTab> {
                   padding: const EdgeInsets.only(bottom: AppSizes.md),
                   child: _TicketCard(
                     post: post,
-                    onPostDeleted: _loadRecentPosts,
+                    onPostDeleted: () {
+                      _loadRecentPosts();
+                      widget.onStatsNeedRefresh?.call();
+                    },
                   ),
                 );
               }),
@@ -576,7 +591,7 @@ class _FriendsTab extends StatelessWidget {
 
 /// 프로필 탭
 class _ProfileTab extends StatefulWidget {
-  const _ProfileTab();
+  const _ProfileTab({super.key});
 
   @override
   State<_ProfileTab> createState() => _ProfileTabState();
