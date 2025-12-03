@@ -220,7 +220,7 @@ class PostService {
       final stadiumCounts = <String, int>{};
       for (final post in posts) {
         final stadium = post.gameInfo.stadium;
-        if (stadium.isNotEmpty) {
+        if (stadium != null && stadium.isNotEmpty) {
           stadiumCounts[stadium] = (stadiumCounts[stadium] ?? 0) + 1;
         }
       }
@@ -240,10 +240,10 @@ class PostService {
       for (final post in posts) {
         final homeTeam = post.gameInfo.homeTeam;
         final awayTeam = post.gameInfo.awayTeam;
-        if (homeTeam.isNotEmpty) {
+        if (homeTeam != null && homeTeam.isNotEmpty) {
           teamCounts[homeTeam] = (teamCounts[homeTeam] ?? 0) + 1;
         }
-        if (awayTeam.isNotEmpty) {
+        if (awayTeam != null && awayTeam.isNotEmpty) {
           teamCounts[awayTeam] = (teamCounts[awayTeam] ?? 0) + 1;
         }
       }

@@ -270,7 +270,7 @@ class _PostCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        post.gameInfo.stadium,
+                        post.gameInfo.stadium ?? '구장 정보 없음',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],

@@ -6,7 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/sizes.dart';
 import '../../models/post_model.dart';
-import '../../models/badge_model.dart';
+import '../../models/badge_model.dart' as badge_model;
 import '../../services/post_service.dart';
 import '../../providers/auth_provider.dart' as auth;
 import '../archive/archive_screen.dart';
@@ -585,7 +585,7 @@ class _ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<_ProfileTab> {
   final PostService _postService = PostService();
   Map<String, dynamic>? _stats;
-  List<Badge> _unlockedBadges = [];
+  List<badge_model.Badge> _unlockedBadges = [];
   bool _isLoading = true;
 
   @override
@@ -602,7 +602,7 @@ class _ProfileTabState extends State<_ProfileTab> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         final stats = await _postService.getUserStats(user.uid);
-        final badges = BadgeChecker.checkBadges(stats);
+        final badges = badge_model.BadgeChecker.checkBadges(stats);
 
         setState(() {
           _stats = stats;
@@ -946,7 +946,7 @@ class _StatItem extends StatelessWidget {
 
 /// 배지 섹션
 class _BadgeSection extends StatelessWidget {
-  final List<Badge> badges;
+  final List<badge_model.Badge> badges;
 
   const _BadgeSection({required this.badges});
 
@@ -988,7 +988,7 @@ class _BadgeSection extends StatelessWidget {
             Wrap(
               spacing: 12,
               runSpacing: 12,
-              children: badges.map((badge) {
+              children: badges.map<Widget>((badge) {
                 return _BadgeItem(badge: badge);
               }).toList(),
             ),
@@ -1001,7 +1001,7 @@ class _BadgeSection extends StatelessWidget {
 
 /// 배지 아이템
 class _BadgeItem extends StatelessWidget {
-  final Badge badge;
+  final badge_model.Badge badge;
 
   const _BadgeItem({required this.badge});
 

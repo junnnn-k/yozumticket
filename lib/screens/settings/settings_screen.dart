@@ -110,7 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           allowFriendRequests: _allowFriendRequests,
         );
 
-        await _userService.updateUser(updatedUser);
+        await _userService.updateUser(user.uid, updatedUser.toJson());
         await authProvider.refreshUserModel();
 
         if (mounted) {
