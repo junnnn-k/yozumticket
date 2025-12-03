@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants/sizes.dart';
+import '../../services/user_service.dart';
+import '../../providers/auth_provider.dart' as auth;
 
 /// 설정 화면
 class SettingsScreen extends StatefulWidget {
@@ -11,6 +16,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final UserService _userService = UserService();
+
   // 알림 설정
   bool _pushNotificationEnabled = true;
   bool _newPostNotification = true;
@@ -19,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 프라이버시 설정
   bool _showProfile = true;
   bool _allowFriendRequests = true;
+  bool _isLoadingPrivacy = false;
 
   // 앱 정보
   String _appVersion = '';
@@ -28,6 +36,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadAppInfo();
+    _loadNotificationSettings();
+    _loadPrivacySettings();
   }
 
   /// 앱 정보 로드
@@ -40,6 +50,154 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     } catch (e) {
       print('앱 정보 로드 실패: $e');
+    }
+  }
+
+  /// 알림 설정 로드
+  Future<void> _loadNotificationSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _pushNotificationEnabled = prefs.getBool('pushNotificationEnabled') ?? true;
+        _newPostNotification = prefs.getBool('newPostNotification') ?? true;
+        _friendRequestNotification = prefs.getBool('friendRequestNotification') ?? true;
+      });
+    } catch (e) {
+      print('알림 설정 로드 실패: $e');
+    }
+  }
+
+  /// 알림 설정 저장
+  Future<void> _saveNotificationSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('pushNotificationEnabled', _pushNotificationEnabled);
+      await prefs.setBool('newPostNotification', _newPostNotification);
+      await prefs.setBool('friendRequestNotification', _friendRequestNotification);
+    } catch (e) {
+      print('알림 설정 저장 실패: $e');
+    }
+  }
+
+  /// 프라이버시 설정 로드
+  Future<void> _loadPrivacySettings() async {
+    try {
+      final authProvider = context.read<auth.AuthProvider>();
+      final user = authProvider.userModel;
+
+      if (user != null) {
+        setState(() {
+          _showProfile = user.showProfile;
+          _allowFriendRequests = user.allowFriendRequests;
+        });
+      }
+    } catch (e) {
+      print('프라이버시 설정 로드 실패: $e');
+    }
+  }
+
+  /// 프라이버시 설정 저장
+  Future<void> _savePrivacySettings() async {
+    setState(() => _isLoadingPrivacy = true);
+
+    try {
+      final authProvider = context.read<auth.AuthProvider>();
+      final user = authProvider.userModel;
+
+      if (user != null) {
+        final updatedUser = user.copyWith(
+          showProfile: _showProfile,
+          allowFriendRequests: _allowFriendRequests,
+        );
+
+        await _userService.updateUser(updatedUser);
+        await authProvider.refreshUserModel();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('설정이 저장되었습니다')),
+          );
+        }
+      }
+    } catch (e) {
+      print('프라이버시 설정 저장 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('설정 저장 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingPrivacy = false);
+      }
+    }
+  }
+
+  /// 계정 삭제
+  Future<void> _deleteAccount() async {
+    // 확인 다이얼로그
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('계정 삭제'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '정말로 계정을 삭제하시겠습니까?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text('⚠️ 이 작업은 되돌릴 수 없습니다.'),
+            SizedBox(height: 8),
+            Text('• 모든 게시글이 삭제됩니다'),
+            Text('• 프로필 정보가 삭제됩니다'),
+            Text('• 친구 관계가 삭제됩니다'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      // 로딩 표시
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      try {
+        final authProvider = context.read<auth.AuthProvider>();
+        await authProvider.deleteAccount();
+
+        if (mounted) {
+          Navigator.of(context).pop(); // 로딩 닫기
+          context.go('/login');
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.of(context).pop(); // 로딩 닫기
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('계정 삭제 실패: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -68,6 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _friendRequestNotification = false;
                 }
               });
+              _saveNotificationSettings();
             },
             secondary: const Icon(Icons.notifications),
           ),
@@ -79,6 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: _pushNotificationEnabled
                 ? (value) {
                     setState(() => _newPostNotification = value);
+                    _saveNotificationSettings();
                   }
                 : null,
             secondary: const Icon(Icons.post_add),
@@ -91,6 +251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: _pushNotificationEnabled
                 ? (value) {
                     setState(() => _friendRequestNotification = value);
+                    _saveNotificationSettings();
                   }
                 : null,
             secondary: const Icon(Icons.person_add),
@@ -104,9 +265,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('프로필 공개'),
             subtitle: const Text('다른 사용자에게 프로필을 공개합니다'),
             value: _showProfile,
-            onChanged: (value) {
-              setState(() => _showProfile = value);
-            },
+            onChanged: _isLoadingPrivacy
+                ? null
+                : (value) {
+                    setState(() => _showProfile = value);
+                    _savePrivacySettings();
+                  },
             secondary: const Icon(Icons.visibility),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
@@ -114,9 +278,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('친구 요청 허용'),
             subtitle: const Text('다른 사용자가 친구 요청을 보낼 수 있습니다'),
             value: _allowFriendRequests,
-            onChanged: (value) {
-              setState(() => _allowFriendRequests = value);
-            },
+            onChanged: _isLoadingPrivacy
+                ? null
+                : (value) {
+                    setState(() => _allowFriendRequests = value);
+                    _savePrivacySettings();
+                  },
             secondary: const Icon(Icons.group_add),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
@@ -197,6 +364,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SnackBar(content: Text('이메일 클라이언트를 열 수 없습니다')),
               );
             },
+          ),
+
+          const SizedBox(height: 24),
+
+          // 계정 관리 섹션
+          _SectionHeader(title: '계정 관리'),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text(
+              '계정 삭제',
+              style: TextStyle(color: Colors.red),
+            ),
+            subtitle: const Text('모든 데이터가 영구적으로 삭제됩니다'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _deleteAccount,
           ),
 
           const SizedBox(height: 32),

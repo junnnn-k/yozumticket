@@ -59,6 +59,7 @@ dependencies:
 
   # 상태 관리
   provider: ^6.1.2
+  shared_preferences: ^2.3.4
 
   # 네비게이션
   go_router: ^14.6.2

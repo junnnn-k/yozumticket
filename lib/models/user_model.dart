@@ -11,6 +11,8 @@ class UserModel {
   final List<String> favoriteTeams; // 응원하는 팀 목록 (복수 선택 가능)
   final String bio; // 자기소개
   final DateTime createdAt;
+  final bool showProfile; // 프로필 공개 여부
+  final bool allowFriendRequests; // 친구 요청 허용 여부
 
   UserModel({
     required this.uid,
@@ -20,6 +22,8 @@ class UserModel {
     required this.favoriteTeams,
     required this.bio,
     required this.createdAt,
+    this.showProfile = true,
+    this.allowFriendRequests = true,
   });
 
   /// Firestore 문서로 변환
@@ -32,6 +36,8 @@ class UserModel {
       'favoriteTeams': favoriteTeams,
       'bio': bio,
       'createdAt': Timestamp.fromDate(createdAt),
+      'showProfile': showProfile,
+      'allowFriendRequests': allowFriendRequests,
     };
   }
 
@@ -45,6 +51,8 @@ class UserModel {
       favoriteTeams: List<String>.from(json['favoriteTeams'] as List? ?? []),
       bio: json['bio'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp).toDate(),
+      showProfile: json['showProfile'] as bool? ?? true,
+      allowFriendRequests: json['allowFriendRequests'] as bool? ?? true,
     );
   }
 
@@ -63,6 +71,8 @@ class UserModel {
     List<String>? favoriteTeams,
     String? bio,
     DateTime? createdAt,
+    bool? showProfile,
+    bool? allowFriendRequests,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -72,6 +82,8 @@ class UserModel {
       favoriteTeams: favoriteTeams ?? this.favoriteTeams,
       bio: bio ?? this.bio,
       createdAt: createdAt ?? this.createdAt,
+      showProfile: showProfile ?? this.showProfile,
+      allowFriendRequests: allowFriendRequests ?? this.allowFriendRequests,
     );
   }
 
