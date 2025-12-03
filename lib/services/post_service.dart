@@ -202,4 +202,61 @@ class PostService {
       throw Exception('태그 검색 실패: $e');
     }
   }
+
+  /// 사용자 통계 조회
+  Future<Map<String, dynamic>> getUserStats(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_collectionName)
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
+
+      // 총 관람 횟수
+      final totalCount = posts.length;
+
+      // 구장별 방문 횟수
+      final stadiumCounts = <String, int>{};
+      for (final post in posts) {
+        final stadium = post.gameInfo.stadium;
+        if (stadium.isNotEmpty) {
+          stadiumCounts[stadium] = (stadiumCounts[stadium] ?? 0) + 1;
+        }
+      }
+
+      // 가장 많이 방문한 구장
+      String mostVisitedStadium = '';
+      int maxVisits = 0;
+      stadiumCounts.forEach((stadium, count) {
+        if (count > maxVisits) {
+          maxVisits = count;
+          mostVisitedStadium = stadium;
+        }
+      });
+
+      // 팀별 관람 횟수
+      final teamCounts = <String, int>{};
+      for (final post in posts) {
+        final homeTeam = post.gameInfo.homeTeam;
+        final awayTeam = post.gameInfo.awayTeam;
+        if (homeTeam.isNotEmpty) {
+          teamCounts[homeTeam] = (teamCounts[homeTeam] ?? 0) + 1;
+        }
+        if (awayTeam.isNotEmpty) {
+          teamCounts[awayTeam] = (teamCounts[awayTeam] ?? 0) + 1;
+        }
+      }
+
+      return {
+        'totalCount': totalCount,
+        'mostVisitedStadium': mostVisitedStadium,
+        'stadiumVisits': maxVisits,
+        'stadiumCounts': stadiumCounts,
+        'teamCounts': teamCounts,
+      };
+    } catch (e) {
+      throw Exception('통계 조회 실패: $e');
+    }
+  }
 }

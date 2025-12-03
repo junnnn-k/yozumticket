@@ -10,6 +10,8 @@ import '../../screens/post/post_create_screen.dart';
 import '../../screens/post/post_detail_screen.dart';
 import '../../screens/post/post_edit_screen.dart';
 import '../../screens/profile/profile_edit_screen.dart';
+import '../../screens/profile/my_posts_screen.dart';
+import '../../screens/settings/settings_screen.dart';
 import '../../models/post_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
 import '../../screens/debug/storage_test_screen.dart';
@@ -94,6 +96,18 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/profile-edit',
       builder: (context, state) => const ProfileEditScreen(),
+    ),
+
+    // 내 게시글 목록 화면
+    GoRoute(
+      path: '/my-posts',
+      builder: (context, state) => const MyPostsScreen(),
+    ),
+
+    // 설정 화면
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
     ),
 
     // Firestore 테스트 화면 (디버그용)

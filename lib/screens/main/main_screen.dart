@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/sizes.dart';
 import '../../models/post_model.dart';
+import '../../models/badge_model.dart';
 import '../../services/post_service.dart';
 import '../../providers/auth_provider.dart' as auth;
 import '../archive/archive_screen.dart';
@@ -574,11 +575,51 @@ class _FriendsTab extends StatelessWidget {
 }
 
 /// 프로필 탭
-class _ProfileTab extends StatelessWidget {
+class _ProfileTab extends StatefulWidget {
   const _ProfileTab();
 
+  @override
+  State<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<_ProfileTab> {
+  final PostService _postService = PostService();
+  Map<String, dynamic>? _stats;
+  List<Badge> _unlockedBadges = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  /// 통계 데이터 로드
+  Future<void> _loadStats() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final stats = await _postService.getUserStats(user.uid);
+        final badges = BadgeChecker.checkBadges(stats);
+
+        setState(() {
+          _stats = stats;
+          _unlockedBadges = badges;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('통계 로드 실패: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
   /// 로그아웃 처리
-  Future<void> _handleLogout(BuildContext context) async {
+  Future<void> _handleLogout() async {
     // 확인 다이얼로그
     final confirmed = await showDialog<bool>(
       context: context,
@@ -598,11 +639,11 @@ class _ProfileTab extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true && mounted) {
       final authProvider = context.read<auth.AuthProvider>();
       await authProvider.signOut();
 
-      if (context.mounted) {
+      if (mounted) {
         // 로그인 화면으로 이동
         context.go('/login');
       }
@@ -685,6 +726,48 @@ class _ProfileTab extends StatelessWidget {
             ),
           ),
 
+          // 통계 섹션
+          if (user != null && !_isLoading && _stats != null) ...[
+            const SizedBox(height: AppSizes.lg),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+              child: _StatisticsCard(stats: _stats!),
+            ),
+          ],
+
+          // 배지 섹션
+          if (user != null && !_isLoading && _unlockedBadges.isNotEmpty) ...[
+            const SizedBox(height: AppSizes.lg),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+              child: _BadgeSection(badges: _unlockedBadges),
+            ),
+          ],
+
+          // 내 게시글 버튼
+          if (user != null) ...[
+            const SizedBox(height: AppSizes.lg),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  context.push('/my-posts');
+                },
+                icon: const Icon(Icons.list),
+                label: const Text('내 게시글 보기'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.all(AppSizes.md),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: AppSizes.lg),
+          const Divider(height: 1),
+
           // 메뉴 리스트
           if (user != null) ...[
             ListTile(
@@ -707,24 +790,11 @@ class _ProfileTab extends StatelessWidget {
           ),
           const Divider(height: 1),
           ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('알림 설정'),
+            leading: const Icon(Icons.settings),
+            title: const Text('설정'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('알림 설정 (추후 구현)')),
-              );
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('앱 정보'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('앱 정보 (추후 구현)')),
-              );
+              context.push('/settings');
             },
           ),
           const Divider(height: 1),
@@ -754,9 +824,219 @@ class _ProfileTab extends StatelessWidget {
                 style: TextStyle(color: Colors.red),
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _handleLogout(context),
+              onTap: _handleLogout,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 통계 카드
+class _StatisticsCard extends StatelessWidget {
+  final Map<String, dynamic> stats;
+
+  const _StatisticsCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final totalCount = stats['totalCount'] as int;
+    final mostVisitedStadium = stats['mostVisitedStadium'] as String;
+    final stadiumVisits = stats['stadiumVisits'] as int;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.bar_chart,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '나의 야구 통계',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSizes.md),
+            const Divider(),
+            const SizedBox(height: AppSizes.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _StatItem(
+                  icon: Icons.sports_baseball,
+                  label: '총 관람',
+                  value: '$totalCount회',
+                  color: Colors.blue,
+                ),
+                _StatItem(
+                  icon: Icons.stadium,
+                  label: '애정 구장',
+                  value: mostVisitedStadium.isNotEmpty
+                      ? '$mostVisitedStadium\n($stadiumVisits회)'
+                      : '없음',
+                  color: Colors.green,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 통계 아이템
+class _StatItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 32),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+/// 배지 섹션
+class _BadgeSection extends StatelessWidget {
+  final List<Badge> badges;
+
+  const _BadgeSection({required this.badges});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.emoji_events,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '획득한 배지 (${badges.length}개)',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSizes.md),
+            const Divider(),
+            const SizedBox(height: AppSizes.md),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: badges.map((badge) {
+                return _BadgeItem(badge: badge);
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 배지 아이템
+class _BadgeItem extends StatelessWidget {
+  final Badge badge;
+
+  const _BadgeItem({required this.badge});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: badge.description,
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: badge.color.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: badge.color,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              badge.icon,
+              color: badge.color,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            badge.title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
