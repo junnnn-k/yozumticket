@@ -567,6 +567,13 @@ class _FriendsTab extends StatelessWidget {
       appBar: AppBar(
         title: const Text('친구'),
         actions: [
+          // 친구 요청 버튼
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              context.push('/friend-requests');
+            },
+          ),
           // 친구 검색 버튼
           IconButton(
             icon: const Icon(Icons.person_add),
