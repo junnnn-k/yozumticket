@@ -78,10 +78,43 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated();
     }
 
-    // ===== Friendships 컬렉션 (나중에 추가) =====
+    // ===== Friendships 컬렉션 =====
     match /friendships/{friendshipId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      // 읽기: 자신이 요청자 또는 수신자인 경우만
+      allow read: if
+        isAuthenticated() &&
+        (resource.data.requesterId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
+
+      // 생성: 인증된 사용자만, 자신이 요청자인 경우만
+      allow create: if
+        isAuthenticated() &&
+        request.resource.data.requesterId == request.auth.uid &&
+        // 필수 필드 존재 확인
+        request.resource.data.keys().hasAll([
+          'requesterId', 'receiverId', 'status', 'createdAt'
+        ]) &&
+        // 초기 상태는 pending이어야 함
+        request.resource.data.status == 'pending' &&
+        // 자기 자신에게 친구 요청 불가
+        request.resource.data.requesterId != request.resource.data.receiverId;
+
+      // 수정: 요청자 또는 수신자만 가능
+      allow update: if
+        isAuthenticated() &&
+        (resource.data.requesterId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid) &&
+        // requesterId, receiverId는 변경 불가
+        request.resource.data.requesterId == resource.data.requesterId &&
+        request.resource.data.receiverId == resource.data.receiverId &&
+        // 상태만 변경 가능
+        request.resource.data.status in ['pending', 'accepted', 'rejected', 'blocked'];
+
+      // 삭제: 요청자 또는 수신자만 가능
+      allow delete: if
+        isAuthenticated() &&
+        (resource.data.requesterId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
     }
 
     // ===== 기타 모든 문서 접근 거부 =====
