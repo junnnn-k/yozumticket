@@ -12,6 +12,7 @@ import '../../screens/post/post_edit_screen.dart';
 import '../../screens/profile/profile_edit_screen.dart';
 import '../../screens/profile/my_posts_screen.dart';
 import '../../screens/settings/settings_screen.dart';
+import '../../screens/friends/search_friends_screen.dart';
 import '../../models/post_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
 import '../../screens/debug/storage_test_screen.dart';
@@ -108,6 +109,12 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
+    ),
+
+    // 친구 검색 화면
+    GoRoute(
+      path: '/search-friends',
+      builder: (context, state) => const SearchFriendsScreen(),
     ),
 
     // Firestore 테스트 화면 (디버그용)

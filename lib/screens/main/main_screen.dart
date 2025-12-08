@@ -566,21 +566,39 @@ class _FriendsTab extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('친구'),
+        actions: [
+          // 친구 검색 버튼
+          IconButton(
+            icon: const Icon(Icons.person_add),
+            onPressed: () {
+              context.push('/search-friends');
+            },
+          ),
+        ],
       ),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              '친구 화면',
+            const Icon(Icons.people, size: 80, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              '친구 목록이 비어있습니다',
               style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
-            SizedBox(height: 8),
-            Text(
-              '(추후 구현)',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                context.push('/search-friends');
+              },
+              icon: const Icon(Icons.person_add),
+              label: const Text('친구 검색'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
             ),
           ],
         ),
