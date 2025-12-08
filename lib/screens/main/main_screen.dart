@@ -6,8 +6,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/sizes.dart';
 import '../../models/post_model.dart';
+import '../../models/user_model.dart';
 import '../../models/badge_model.dart' as badge_model;
 import '../../services/post_service.dart';
+import '../../services/friend_service.dart';
 import '../../providers/auth_provider.dart' as auth;
 import '../archive/archive_screen.dart';
 
@@ -558,8 +560,118 @@ class _TicketCard extends StatelessWidget {
 }
 
 /// 친구 탭
-class _FriendsTab extends StatelessWidget {
+class _FriendsTab extends StatefulWidget {
   const _FriendsTab();
+
+  @override
+  State<_FriendsTab> createState() => _FriendsTabState();
+}
+
+class _FriendsTabState extends State<_FriendsTab> {
+  final FriendService _friendService = FriendService();
+  List<UserModel> _friends = [];
+  int _pendingRequestCount = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFriends();
+  }
+
+  /// 친구 목록 로드
+  Future<void> _loadFriends() async {
+    final currentUser = context.read<auth.AuthProvider>().userModel;
+    if (currentUser == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final results = await Future.wait([
+        _friendService.getFriends(currentUser.uid),
+        _friendService.getPendingRequestCount(currentUser.uid),
+      ]);
+
+      setState(() {
+        _friends = results[0] as List<UserModel>;
+        _pendingRequestCount = results[1] as int;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 친구 삭제
+  Future<void> _removeFriend(UserModel friend) async {
+    final currentUser = context.read<auth.AuthProvider>().userModel;
+    if (currentUser == null) return;
+
+    // 확인 다이얼로그
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('친구 삭제'),
+        content: Text('${friend.username}님을 친구 목록에서 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      // 친구 관계 찾기
+      final friendship = await _friendService.checkFriendship(
+        currentUser.uid,
+        friend.uid,
+      );
+
+      if (friendship != null) {
+        await _friendService.removeFriend(friendship.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('친구를 삭제했습니다.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          // 목록 새로고침
+          _loadFriends();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -567,47 +679,217 @@ class _FriendsTab extends StatelessWidget {
       appBar: AppBar(
         title: const Text('친구'),
         actions: [
-          // 친구 요청 버튼
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              context.push('/friend-requests');
-            },
+          // 친구 요청 버튼 (배지 포함)
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () async {
+                  await context.push('/friend-requests');
+                  // 돌아왔을 때 새로고침
+                  _loadFriends();
+                },
+              ),
+              if (_pendingRequestCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$_pendingRequestCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
           // 친구 검색 버튼
           IconButton(
             icon: const Icon(Icons.person_add),
-            onPressed: () {
-              context.push('/search-friends');
+            onPressed: () async {
+              await context.push('/search-friends');
+              // 돌아왔을 때 새로고침
+              _loadFriends();
             },
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.people, size: 80, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
-              '친구 목록이 비어있습니다',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                context.push('/search-friends');
-              },
-              icon: const Icon(Icons.person_add),
-              label: const Text('친구 검색'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+      body: RefreshIndicator(
+        onRefresh: _loadFriends,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _friends.isEmpty
+                ? _buildEmptyState()
+                : _buildFriendsList(),
+      ),
+    );
+  }
+
+  /// 빈 상태 위젯
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.people, size: 80, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text(
+            '친구 목록이 비어있습니다',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await context.push('/search-friends');
+              _loadFriends();
+            },
+            icon: const Icon(Icons.person_add),
+            label: const Text('친구 검색'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 친구 목록 위젯
+  Widget _buildFriendsList() {
+    return ListView.builder(
+      itemCount: _friends.length,
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, index) {
+        final friend = _friends[index];
+        return _FriendCard(
+          friend: friend,
+          onTap: () {
+            // TODO: 친구 프로필 화면으로 이동 (Day 30)
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('친구 프로필 화면은 Day 30에 구현됩니다.'),
+              ),
+            );
+          },
+          onRemove: () => _removeFriend(friend),
+        );
+      },
+    );
+  }
+}
+
+/// 친구 카드 위젯
+class _FriendCard extends StatelessWidget {
+  final UserModel friend;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  const _FriendCard({
+    required this.friend,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // 프로필 이미지
+              CircleAvatar(
+                radius: 30,
+                backgroundImage: friend.profileImageUrl.isNotEmpty
+                    ? NetworkImage(friend.profileImageUrl)
+                    : null,
+                child: friend.profileImageUrl.isEmpty
+                    ? const Icon(Icons.person, size: 30)
+                    : null,
+              ),
+              const SizedBox(width: 16),
+
+              // 사용자 정보
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      friend.username,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (friend.favoriteTeams.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        friend.favoriteTeams.join(', '),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                    if (friend.bio.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        friend.bio,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // 더보기 메뉴
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'remove') {
+                    onRemove();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'remove',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_remove, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('친구 삭제', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
