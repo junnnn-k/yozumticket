@@ -14,7 +14,9 @@ import '../../screens/profile/my_posts_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/friends/search_friends_screen.dart';
 import '../../screens/friends/friend_requests_screen.dart';
+import '../../screens/friends/friend_profile_screen.dart';
 import '../../models/post_model.dart';
+import '../../models/user_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
 import '../../screens/debug/storage_test_screen.dart';
 
@@ -122,6 +124,15 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/friend-requests',
       builder: (context, state) => const FriendRequestsScreen(),
+    ),
+
+    // 친구 프로필 화면
+    GoRoute(
+      path: '/friend-profile',
+      builder: (context, state) {
+        final friend = state.extra as UserModel;
+        return FriendProfileScreen(friend: friend);
+      },
     ),
 
     // Firestore 테스트 화면 (디버그용)

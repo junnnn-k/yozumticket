@@ -259,4 +259,51 @@ class PostService {
       throw Exception('통계 조회 실패: $e');
     }
   }
+
+  /// 친구의 게시글 조회 (프라이버시 필터링 적용)
+  ///
+  /// [friendId] 친구의 사용자 ID
+  /// [viewerId] 조회하는 사용자 ID
+  /// [limit] 조회할 게시글 수 (기본값: 20)
+  ///
+  /// Returns: 친구의 공개 게시글 목록 (전체 공개 + 친구 공개)
+  Future<List<Post>> getFriendPosts(
+    String friendId,
+    String viewerId, {
+    int limit = 20,
+  }) async {
+    try {
+      // 친구의 게시글 중 전체 공개 또는 친구 공개인 게시글만 조회
+      final query = await _firestore
+          .collection(_collectionName)
+          .where('userId', isEqualTo: friendId)
+          .where('privacy', whereIn: ['public', 'friends'])
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+
+      return query.docs.map((doc) => Post.fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('친구 게시글 조회 실패: $e');
+    }
+  }
+
+  /// 친구의 게시글 수 조회
+  ///
+  /// [friendId] 친구의 사용자 ID
+  ///
+  /// Returns: 친구의 공개 게시글 수
+  Future<int> getFriendPostCount(String friendId) async {
+    try {
+      final query = await _firestore
+          .collection(_collectionName)
+          .where('userId', isEqualTo: friendId)
+          .where('privacy', whereIn: ['public', 'friends'])
+          .get();
+
+      return query.docs.length;
+    } catch (e) {
+      throw Exception('친구 게시글 수 조회 실패: $e');
+    }
+  }
 }

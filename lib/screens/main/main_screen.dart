@@ -781,12 +781,7 @@ class _FriendsTabState extends State<_FriendsTab> {
         return _FriendCard(
           friend: friend,
           onTap: () {
-            // TODO: 친구 프로필 화면으로 이동 (Day 30)
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('친구 프로필 화면은 Day 30에 구현됩니다.'),
-              ),
-            );
+            context.push('/friend-profile', extra: friend);
           },
           onRemove: () => _removeFriend(friend),
         );
