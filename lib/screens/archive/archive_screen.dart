@@ -237,14 +237,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorState()
-              : _filteredPosts.isEmpty
-                  ? _buildEmptyState()
-                  : RefreshIndicator(
-                      onRefresh: _loadPosts,
-                      child: _buildBody(),
-                    ),
+          : RefreshIndicator(
+              onRefresh: _loadPosts,
+              child: _error != null
+                  ? _buildErrorState()
+                  : _filteredPosts.isEmpty
+                      ? _buildEmptyState()
+                      : _buildBody(),
+            ),
     );
   }
 
@@ -278,23 +278,31 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 
   /// 에러 상태
   Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadPosts,
-              child: const Text('다시 시도'),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(_error!, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadPosts,
+                    child: const Text('다시 시도'),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -305,42 +313,50 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _selectedStadiums.isNotEmpty ||
         _minRating != null;
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            hasFilters ? Icons.search_off : Icons.book_outlined,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            hasFilters ? '필터 조건에 맞는 기록이 없습니다' : '아직 기록이 없습니다',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            hasFilters ? '필터를 변경해보세요' : '첫 경기를 기록해보세요!',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-          if (hasFilters) ...[
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _selectedTeams.clear();
-                  _selectedStadiums.clear();
-                  _minRating = null;
-                  _applyFilters();
-                  _buildEventsByDate();
-                });
-              },
-              child: const Text('필터 초기화'),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  hasFilters ? Icons.search_off : Icons.book_outlined,
+                  size: 80,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  hasFilters ? '필터 조건에 맞는 기록이 없습니다' : '아직 기록이 없습니다',
+                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  hasFilters ? '필터를 변경해보세요' : '첫 경기를 기록해보세요!',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                ),
+                if (hasFilters) ...[
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedTeams.clear();
+                        _selectedStadiums.clear();
+                        _minRating = null;
+                        _applyFilters();
+                        _buildEventsByDate();
+                      });
+                    },
+                    child: const Text('필터 초기화'),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 

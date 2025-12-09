@@ -28,11 +28,15 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRequests();
+    // initState에서는 context를 사용하지 않고, 다음 프레임에서 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRequests();
+    });
   }
 
   /// 친구 요청 목록 로드
   Future<void> _loadRequests() async {
+    if (!mounted) return;
     final currentUser = context.read<AuthProvider>().userModel;
     if (currentUser == null) return;
 
@@ -280,29 +284,38 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
   /// 받은 요청 목록
   Widget _buildReceivedRequests() {
     if (_receivedRequests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '받은 친구 요청이 없습니다',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.inbox,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '받은 친구 요청이 없습니다',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: _receivedRequests.length,
       padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {
@@ -327,29 +340,38 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
   /// 보낸 요청 목록
   Widget _buildSentRequests() {
     if (_sentRequests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.send,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '보낸 친구 요청이 없습니다',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.send,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '보낸 친구 요청이 없습니다',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: _sentRequests.length,
       padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {

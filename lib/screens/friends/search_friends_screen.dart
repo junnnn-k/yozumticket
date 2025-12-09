@@ -175,6 +175,95 @@ class _SearchFriendsScreenState extends State<SearchFriendsScreen> {
     }
   }
 
+  /// 친구 요청 수락
+  Future<void> _acceptFriendRequest(UserModel targetUser) async {
+    final friendship = _friendshipCache[targetUser.uid];
+    if (friendship == null) return;
+
+    setState(() {
+      _loadingStates[targetUser.uid] = true;
+    });
+
+    try {
+      await _friendService.acceptFriendRequest(friendship.id);
+
+      // 캐시 업데이트
+      final currentUser = context.read<AuthProvider>().userModel;
+      if (currentUser != null) {
+        final updatedFriendship = await _friendService.checkFriendship(
+          currentUser.uid,
+          targetUser.uid,
+        );
+        setState(() {
+          _friendshipCache[targetUser.uid] = updatedFriendship;
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${targetUser.username}님과 친구가 되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _loadingStates[targetUser.uid] = false;
+      });
+    }
+  }
+
+  /// 친구 요청 거절
+  Future<void> _rejectFriendRequest(UserModel targetUser) async {
+    final friendship = _friendshipCache[targetUser.uid];
+    if (friendship == null) return;
+
+    setState(() {
+      _loadingStates[targetUser.uid] = true;
+    });
+
+    try {
+      await _friendService.rejectFriendRequest(friendship.id);
+
+      // 캐시 업데이트
+      setState(() {
+        _friendshipCache[targetUser.uid] = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('친구 요청을 거절했습니다.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _loadingStates[targetUser.uid] = false;
+      });
+    }
+  }
+
   /// 친구 삭제
   Future<void> _removeFriend(UserModel targetUser) async {
     final friendship = _friendshipCache[targetUser.uid];
@@ -371,11 +460,15 @@ class _SearchFriendsScreenState extends State<SearchFriendsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemBuilder: (context, index) {
         final user = _searchResults[index];
+        final currentUser = context.read<AuthProvider>().userModel;
         return _UserCard(
           user: user,
+          currentUserId: currentUser?.uid ?? '',
           friendship: _friendshipCache[user.uid],
           isLoading: _loadingStates[user.uid] ?? false,
           onSendRequest: () => _sendFriendRequest(user),
+          onAcceptRequest: () => _acceptFriendRequest(user),
+          onRejectRequest: () => _rejectFriendRequest(user),
           onCancelRequest: () => _cancelFriendRequest(user),
           onRemoveFriend: () => _removeFriend(user),
         );
@@ -387,17 +480,23 @@ class _SearchFriendsScreenState extends State<SearchFriendsScreen> {
 /// 사용자 카드 위젯
 class _UserCard extends StatelessWidget {
   final UserModel user;
+  final String currentUserId;
   final Friendship? friendship;
   final bool isLoading;
   final VoidCallback onSendRequest;
+  final VoidCallback onAcceptRequest;
+  final VoidCallback onRejectRequest;
   final VoidCallback onCancelRequest;
   final VoidCallback onRemoveFriend;
 
   const _UserCard({
     required this.user,
+    required this.currentUserId,
     required this.friendship,
     required this.isLoading,
     required this.onSendRequest,
+    required this.onAcceptRequest,
+    required this.onRejectRequest,
     required this.onCancelRequest,
     required this.onRemoveFriend,
   });
@@ -495,15 +594,40 @@ class _UserCard extends StatelessWidget {
 
     // 친구 요청 대기 중
     if (friendship!.status == FriendshipStatus.pending) {
-      final currentUser = friendship!.requesterId;
+      // 내가 요청을 받은 경우 (상대방이 요청자)
+      if (friendship!.receiverId == currentUserId) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OutlinedButton(
+              onPressed: onRejectRequest,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('거절'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: onAcceptRequest,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: const Text('수락'),
+            ),
+          ],
+        );
+      }
       // 내가 요청을 보낸 경우
-      return OutlinedButton(
-        onPressed: onCancelRequest,
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-        child: const Text('요청 취소'),
-      );
+      else {
+        return OutlinedButton(
+          onPressed: onCancelRequest,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          child: const Text('요청 취소'),
+        );
+      }
     }
 
     // 이미 친구인 경우

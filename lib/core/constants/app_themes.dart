@@ -238,4 +238,31 @@ class AppThemes {
         return '역동적이고 활기찬 야구장 스타일';
     }
   }
+
+  /// 프리미엄 전용 테마 여부 (비즈니스 모델 v3.1)
+  ///
+  /// - diary: 무료 (기본 테마)
+  /// - album: 프리미엄 전용
+  /// - stadium: 프리미엄 전용
+  static bool isPremiumTheme(AppThemeType type) {
+    switch (type) {
+      case AppThemeType.diary:
+        return false; // 무료 사용자 기본 테마
+      case AppThemeType.album:
+        return true; // 프리미엄 전용
+      case AppThemeType.stadium:
+        return true; // 프리미엄 전용
+    }
+  }
+
+  /// 모든 테마 타입 목록
+  static List<AppThemeType> get allThemes => AppThemeType.values;
+
+  /// 무료 테마 목록
+  static List<AppThemeType> get freeThemes =>
+      allThemes.where((theme) => !isPremiumTheme(theme)).toList();
+
+  /// 프리미엄 테마 목록
+  static List<AppThemeType> get premiumThemes =>
+      allThemes.where((theme) => isPremiumTheme(theme)).toList();
 }

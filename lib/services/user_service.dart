@@ -1,11 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import 'storage_service.dart';
 
 /// Firestore Users 컬렉션 서비스
 ///
 /// 사용자 프로필 CRUD 기능 제공
 class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final StorageService _storageService = StorageService();
 
   /// Users 컬렉션 참조
   CollectionReference get _usersCollection => _firestore.collection('users');
@@ -58,11 +60,52 @@ class UserService {
 
   /// 사용자 삭제
   ///
-  /// 회원 탈퇴 시 Firestore 사용자 데이터 삭제
+  /// 회원 탈퇴 시 모든 사용자 데이터 삭제
+  /// - Firestore: users, posts, friendships
+  /// - Firebase Storage: 모든 사용자 파일
   Future<void> deleteUser(String uid) async {
     try {
+      print('[UserService] Starting user deletion: $uid');
+
+      // 1. 사용자의 모든 게시글 삭제
+      final postsSnapshot = await _firestore
+          .collection('posts')
+          .where('userId', isEqualTo: uid)
+          .get();
+
+      print('[UserService] Found ${postsSnapshot.docs.length} posts to delete');
+
+      for (final doc in postsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. 사용자와 관련된 모든 친구 관계 삭제
+      final friendshipsAsRequester = await _firestore
+          .collection('friendships')
+          .where('requesterId', isEqualTo: uid)
+          .get();
+
+      final friendshipsAsReceiver = await _firestore
+          .collection('friendships')
+          .where('receiverId', isEqualTo: uid)
+          .get();
+
+      print('[UserService] Found ${friendshipsAsRequester.docs.length + friendshipsAsReceiver.docs.length} friendships to delete');
+
+      for (final doc in friendshipsAsRequester.docs) {
+        await doc.reference.delete();
+      }
+      for (final doc in friendshipsAsReceiver.docs) {
+        await doc.reference.delete();
+      }
+
+      // 3. Firebase Storage의 모든 사용자 파일 삭제
+      await _storageService.deleteUserData(uid);
+
+      // 4. Firestore users 문서 삭제
       await _usersCollection.doc(uid).delete();
-      print('[UserService] User deleted: $uid');
+
+      print('[UserService] User and all related data deleted successfully: $uid');
     } catch (e) {
       print('[UserService] Failed to delete user: $e');
       rethrow;
@@ -151,5 +194,220 @@ class UserService {
       if (!doc.exists) return null;
       return UserModel.fromFirestore(doc);
     });
+  }
+
+  // ============================================================================
+  // 비즈니스 모델 관련 메서드 (v3.1)
+  // ============================================================================
+
+  /// 프리미엄 상태 업데이트
+  ///
+  /// 프리미엄 구독 시 한 번에 여러 필드 업데이트
+  /// - isPremium: true
+  /// - maxPhotosPerPost: 20
+  /// - maxSharedArchives: -1 (무제한)
+  /// - showBannerAds: false
+  Future<void> upgradeToPremium({
+    required String uid,
+    required String subscriptionType,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      await updateUser(uid, {
+        'isPremium': true,
+        'subscriptionType': subscriptionType,
+        'subscriptionStartDate': Timestamp.fromDate(startDate),
+        'subscriptionEndDate': Timestamp.fromDate(endDate),
+        'maxPhotosPerPost': 20,
+        'maxSharedArchives': -1, // 무제한
+        'showBannerAds': false,
+      });
+      print('[UserService] User upgraded to premium: $uid');
+    } catch (e) {
+      print('[UserService] Failed to upgrade to premium: $e');
+      rethrow;
+    }
+  }
+
+  /// 프리미엄 상태 해제 (구독 만료 시)
+  ///
+  /// 무료 사용자 상태로 복귀
+  Future<void> downgradeToFree(String uid) async {
+    try {
+      await updateUser(uid, {
+        'isPremium': false,
+        'subscriptionType': null,
+        'subscriptionStartDate': null,
+        'subscriptionEndDate': null,
+        'maxPhotosPerPost': 3,
+        'maxSharedArchives': 2,
+        'showBannerAds': true,
+      });
+      print('[UserService] User downgraded to free: $uid');
+    } catch (e) {
+      print('[UserService] Failed to downgrade to free: $e');
+      rethrow;
+    }
+  }
+
+  /// 구독 정보 업데이트
+  ///
+  /// 구독 연장 또는 변경 시 사용
+  Future<void> updateSubscription({
+    required String uid,
+    required String subscriptionType,
+    required DateTime endDate,
+  }) async {
+    try {
+      await updateUser(uid, {
+        'subscriptionType': subscriptionType,
+        'subscriptionEndDate': Timestamp.fromDate(endDate),
+      });
+      print('[UserService] Subscription updated: $uid');
+    } catch (e) {
+      print('[UserService] Failed to update subscription: $e');
+      rethrow;
+    }
+  }
+
+  /// 리워드 광고 시청 횟수 증가
+  ///
+  /// 사용자가 리워드 광고를 시청할 때마다 호출
+  /// 일일 제한 체크는 호출 측에서 수행
+  Future<void> incrementRewardedAdCount(String uid) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      final now = DateTime.now();
+      final lastAdDate = user.lastRewardedAdDate;
+
+      // 날짜가 바뀌었으면 카운트 초기화
+      int newCount = 1;
+      if (lastAdDate != null &&
+          lastAdDate.year == now.year &&
+          lastAdDate.month == now.month &&
+          lastAdDate.day == now.day) {
+        // 같은 날이면 카운트 증가
+        newCount = user.dailyRewardedAdCount + 1;
+      }
+
+      await updateUser(uid, {
+        'dailyRewardedAdCount': newCount,
+        'lastRewardedAdDate': Timestamp.fromDate(now),
+      });
+
+      print('[UserService] Rewarded ad count updated: $uid ($newCount)');
+    } catch (e) {
+      print('[UserService] Failed to increment ad count: $e');
+      rethrow;
+    }
+  }
+
+  /// 일일 광고 횟수 초기화
+  ///
+  /// 매일 자정에 호출 (서버 트리거 또는 앱 시작 시 체크)
+  Future<void> resetDailyAdCount(String uid) async {
+    try {
+      await updateUser(uid, {
+        'dailyRewardedAdCount': 0,
+      });
+      print('[UserService] Daily ad count reset: $uid');
+    } catch (e) {
+      print('[UserService] Failed to reset ad count: $e');
+      rethrow;
+    }
+  }
+
+  /// 테마 구매 추가
+  ///
+  /// 사용자가 테마를 구매했을 때 호출
+  Future<void> addOwnedTheme(String uid, String themeId) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      // 이미 소유한 테마인지 확인
+      if (user.ownedThemes.contains(themeId)) {
+        print('[UserService] Theme already owned: $themeId');
+        return;
+      }
+
+      final updatedThemes = [...user.ownedThemes, themeId];
+      await updateUser(uid, {
+        'ownedThemes': updatedThemes,
+      });
+
+      print('[UserService] Theme added: $uid -> $themeId');
+    } catch (e) {
+      print('[UserService] Failed to add theme: $e');
+      rethrow;
+    }
+  }
+
+  /// 구매 이력 추가
+  ///
+  /// 모든 구매(구독, 개별 상품) 이력 기록
+  Future<void> addPurchaseHistory(String uid, String productId) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      final updatedHistory = [...user.purchaseHistory, productId];
+      await updateUser(uid, {
+        'purchaseHistory': updatedHistory,
+      });
+
+      print('[UserService] Purchase history added: $uid -> $productId');
+    } catch (e) {
+      print('[UserService] Failed to add purchase history: $e');
+      rethrow;
+    }
+  }
+
+  /// 사진 제한 커스텀 설정
+  ///
+  /// 개별 상품 구매 시 (예: 추가사진+ 구독)
+  Future<void> updatePhotoLimit(String uid, int maxPhotos) async {
+    try {
+      await updateUser(uid, {
+        'maxPhotosPerPost': maxPhotos,
+      });
+      print('[UserService] Photo limit updated: $uid -> $maxPhotos');
+    } catch (e) {
+      print('[UserService] Failed to update photo limit: $e');
+      rethrow;
+    }
+  }
+
+  /// 공유 아카이브 제한 커스텀 설정
+  ///
+  /// 개별 상품 구매 시
+  Future<void> updateSharedArchiveLimit(String uid, int maxArchives) async {
+    try {
+      await updateUser(uid, {
+        'maxSharedArchives': maxArchives,
+      });
+      print('[UserService] Shared archive limit updated: $uid -> $maxArchives');
+    } catch (e) {
+      print('[UserService] Failed to update archive limit: $e');
+      rethrow;
+    }
+  }
+
+  /// 광고 표시 설정
+  ///
+  /// 개별 광고 제거 상품 구매 시
+  Future<void> updateAdSettings(String uid, bool showBannerAds) async {
+    try {
+      await updateUser(uid, {
+        'showBannerAds': showBannerAds,
+      });
+      print('[UserService] Ad settings updated: $uid -> showBannerAds: $showBannerAds');
+    } catch (e) {
+      print('[UserService] Failed to update ad settings: $e');
+      rethrow;
+    }
   }
 }

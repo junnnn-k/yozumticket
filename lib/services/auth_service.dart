@@ -104,8 +104,13 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user != null) {
+        // Google Sign-In 연결 해제 (중요: 재로그인 시 계정 선택 가능하도록)
+        await _googleSignIn.disconnect();
+        print('[AuthService] Google Sign-In disconnected');
+
+        // Firebase Authentication 계정 삭제
         await user.delete();
-        print('[AuthService] Account deleted successfully');
+        print('[AuthService] Firebase Auth account deleted successfully');
       }
     } catch (e) {
       print('[AuthService] Account deletion failed: $e');

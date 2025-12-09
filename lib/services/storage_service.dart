@@ -337,4 +337,51 @@ class StorageService {
       // 프로필 이미지 삭제 실패는 치명적이지 않으므로 에러를 throw하지 않음
     }
   }
+
+  /// 사용자의 모든 Storage 데이터 삭제
+  ///
+  /// [userId]: 사용자 ID
+  ///
+  /// 회원 탈퇴 시 사용자의 모든 파일 삭제
+  Future<void> deleteUserData(String userId) async {
+    try {
+      final String storagePath = 'users/$userId';
+      final Reference ref = _storage.ref().child(storagePath);
+
+      print('[StorageService] Deleting user data: $storagePath');
+
+      // 재귀적으로 모든 파일과 폴더 삭제
+      await _deleteDirectory(ref);
+
+      print('[StorageService] User data deleted successfully: $userId');
+    } catch (e) {
+      print('[StorageService] User data deletion failed: $e');
+      // Storage 삭제 실패는 치명적이지 않으므로 에러를 throw하지 않음
+      // (계정 삭제는 계속 진행되어야 함)
+    }
+  }
+
+  /// 디렉토리 재귀 삭제 (내부 헬퍼 메서드)
+  Future<void> _deleteDirectory(Reference ref) async {
+    try {
+      final ListResult result = await ref.listAll();
+
+      // 모든 파일 삭제
+      for (final Reference fileRef in result.items) {
+        try {
+          await fileRef.delete();
+          print('[StorageService] File deleted: ${fileRef.fullPath}');
+        } catch (e) {
+          print('[StorageService] Failed to delete file: ${fileRef.fullPath}, error: $e');
+        }
+      }
+
+      // 모든 하위 디렉토리 재귀 삭제
+      for (final Reference dirRef in result.prefixes) {
+        await _deleteDirectory(dirRef);
+      }
+    } catch (e) {
+      print('[StorageService] Failed to delete directory: ${ref.fullPath}, error: $e');
+    }
+  }
 }

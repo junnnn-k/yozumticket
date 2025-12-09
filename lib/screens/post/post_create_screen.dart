@@ -2,12 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../models/game_info.dart';
 import '../../models/post_model.dart';
 import '../../services/image_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/post_service.dart';
 import '../../core/constants/baseball_data.dart';
+import '../../providers/auth_provider.dart';
 
 /// 게시글 작성 화면
 class PostCreateScreen extends StatefulWidget {
@@ -51,19 +53,57 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
   /// 추가 사진 선택
   Future<void> _pickAdditionalPhotos() async {
     try {
+      // 현재 사용자 정보 가져오기
+      final authProvider = context.read<AuthProvider>();
+      final currentUser = authProvider.currentUser;
+
+      if (currentUser == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사용자 정보를 불러올 수 없습니다')),
+        );
+        return;
+      }
+
+      // 사용자별 사진 제한 (무료: 3장, 프리미엄: 20장)
+      final maxPhotos = currentUser.maxPhotosPerPost;
+      final currentPhotoCount = _additionalPhotos.length;
+
+      // 제한 초과 체크
+      if (currentPhotoCount >= maxPhotos) {
+        if (!mounted) return;
+        _showPhotoLimitDialog(currentUser.isPremium, maxPhotos);
+        return;
+      }
+
       final files = await _imageService.pickMultipleImages();
 
       if (files.isEmpty) return;
 
-      // 최대 10장 제한
-      final totalPhotos = _additionalPhotos.length + files.length;
-      if (totalPhotos > 10) {
+      // 추가 후 총 개수 체크
+      final totalPhotos = currentPhotoCount + files.length;
+      if (totalPhotos > maxPhotos) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('추가 사진은 최대 10장까지 선택 가능합니다 (현재: ${_additionalPhotos.length}장)'),
-          ),
-        );
+
+        // 일부만 추가 가능한 경우
+        final availableSlots = maxPhotos - currentPhotoCount;
+        if (availableSlots > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$availableSlots장만 추가할 수 있습니다 (최대: $maxPhotos장)'),
+              action: SnackBarAction(
+                label: '일부 추가',
+                onPressed: () {
+                  setState(() {
+                    _additionalPhotos.addAll(files.take(availableSlots));
+                  });
+                },
+              ),
+            ),
+          );
+        } else {
+          _showPhotoLimitDialog(currentUser.isPremium, maxPhotos);
+        }
         return;
       }
 
@@ -76,6 +116,78 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
         SnackBar(content: Text('사진 선택 실패: $e')),
       );
     }
+  }
+
+  /// 사진 제한 다이얼로그 표시
+  void _showPhotoLimitDialog(bool isPremium, int maxPhotos) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('사진 제한'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isPremium
+                  ? '사진은 최대 $maxPhotos장까지 추가할 수 있습니다.'
+                  : '무료 사용자는 사진을 최대 $maxPhotos장까지 추가할 수 있습니다.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            if (!isPremium) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          '프리미엄 혜택',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '프리미엄 구독 시 최대 20장까지 사진을 추가할 수 있습니다.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+          if (!isPremium)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // TODO: 프리미엄 구독 화면으로 이동
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('프리미엄 구독 화면 (준비 중)')),
+                );
+              },
+              child: const Text('프리미엄 보기'),
+            ),
+        ],
+      ),
+    );
   }
 
   /// 추가 사진 삭제
@@ -406,6 +518,12 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
 
   /// 추가 사진
   Widget _buildAdditionalPhotos(ColorScheme colorScheme) {
+    // 현재 사용자의 사진 제한 가져오기
+    final authProvider = context.watch<AuthProvider>();
+    final currentUser = authProvider.currentUser;
+    final maxPhotos = currentUser?.maxPhotosPerPost ?? 3; // 기본값: 무료 사용자
+    final isLimitReached = _additionalPhotos.length >= maxPhotos;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -414,15 +532,28 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '추가 사진 (${_additionalPhotos.length}/10)',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  Text(
+                    '추가 사진 (${_additionalPhotos.length}/$maxPhotos)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (currentUser != null && !currentUser.isPremium && maxPhotos == 3)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                ],
               ),
               TextButton.icon(
-                onPressed: _additionalPhotos.length >= 10 ? null : _pickAdditionalPhotos,
+                onPressed: isLimitReached ? null : _pickAdditionalPhotos,
                 icon: const Icon(Icons.add_photo_alternate),
                 label: const Text('사진 추가'),
               ),

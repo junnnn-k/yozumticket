@@ -184,9 +184,7 @@ class _HomeTabState extends State<_HomeTab> {
           IconButton(
             icon: const Icon(Icons.palette),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('테마 설정 (추후 구현)')),
-              );
+              context.push('/theme-preview');
             },
             tooltip: '테마 변경',
           ),
@@ -741,39 +739,48 @@ class _FriendsTabState extends State<_FriendsTab> {
 
   /// 빈 상태 위젯
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.people, size: 80, color: Colors.grey),
-          const SizedBox(height: 16),
-          const Text(
-            '친구 목록이 비어있습니다',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () async {
-              await context.push('/search-friends');
-              _loadFriends();
-            },
-            icon: const Icon(Icons.person_add),
-            label: const Text('친구 검색'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.people, size: 80, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  '친구 목록이 비어있습니다',
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await context.push('/search-friends');
+                    _loadFriends();
+                  },
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('친구 검색'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   /// 친구 목록 위젯
   Widget _buildFriendsList() {
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: _friends.length,
       padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {
