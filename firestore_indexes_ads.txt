@@ -1,0 +1,52 @@
+// Firestore Composite Indexes for Ad Interactions
+//
+// adInteractions 컬렉션의 쿼리 성능을 위한 복합 인덱스
+//
+// Firebase Console에서 수동 생성 필요:
+// Firestore Database > 색인 탭 > 복합 색인 추가
+
+// 인덱스 1: 사용자별 최근 광고 상호작용 조회
+// 쿼리: getUserAdInteractions()
+Collection: adInteractions
+Fields:
+  - userId (Ascending)
+  - timestamp (Descending)
+
+// 인덱스 2: 사용자별 일일 노출 횟수 조회
+// 쿼리: getDailyImpressionCount()
+Collection: adInteractions
+Fields:
+  - userId (Ascending)
+  - eventType (Ascending)
+  - timestamp (Ascending)
+
+// 인덱스 3: 기간별 광고 타입 통계
+// 쿼리: getAdStatsByDateRange() with adType
+Collection: adInteractions
+Fields:
+  - adType (Ascending)
+  - timestamp (Ascending)
+
+// 인덱스 4: 기간별 이벤트 타입 통계
+// 쿼리: getAdStatsByDateRange() with eventType
+Collection: adInteractions
+Fields:
+  - eventType (Ascending)
+  - timestamp (Ascending)
+
+// 인덱스 5: 오래된 데이터 정리 쿼리
+// 쿼리: cleanupOldData()
+Collection: adInteractions
+Fields:
+  - timestamp (Ascending)
+
+// Firebase Console에서 자동 생성 방법:
+// 1. 앱에서 해당 쿼리 실행
+// 2. 콘솔에 표시되는 "인덱스 생성" 링크 클릭
+// 3. 자동으로 필요한 인덱스 설정 생성
+
+// 또는 수동 생성:
+// 1. Firebase Console > Firestore Database > 색인 탭
+// 2. "복합 색인 추가" 클릭
+// 3. 위 필드 설정 입력
+// 4. "저장" 클릭

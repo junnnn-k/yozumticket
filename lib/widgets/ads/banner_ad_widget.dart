@@ -5,9 +5,12 @@
 
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../core/constants/ad_config.dart';
 import '../../services/ad_service.dart';
+import '../../services/ad_analytics_service.dart';
+import '../../models/ad_interaction_model.dart';
 
 class BannerAdWidget extends StatefulWidget {
   /// 광고 표시 위치 식별자 (로깅용)
@@ -23,6 +26,7 @@ class BannerAdWidget extends StatefulWidget {
 }
 
 class _BannerAdWidgetState extends State<BannerAdWidget> {
+  final AdAnalyticsService _analyticsService = AdAnalyticsService();
   BannerAd? _bannerAd;
   bool _isAdLoaded = false;
   bool _isAdFailed = false;
@@ -71,6 +75,10 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
             error: error,
           );
           ad.dispose();
+
+          // 로딩 실패 로깅
+          _logAdFailed(error.message);
+
           if (mounted) {
             setState(() => _isAdFailed = true);
           }
@@ -80,6 +88,9 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
             'Banner ad opened (${widget.placement})',
             name: 'BannerAdWidget',
           );
+
+          // 클릭 로깅
+          _logAdClick();
         },
         onAdClosed: (ad) {
           dev.log(
@@ -92,11 +103,52 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
             'Banner ad impression (${widget.placement})',
             name: 'BannerAdWidget',
           );
+
+          // 노출 로깅
+          _logAdImpression();
         },
       ),
     );
 
     _bannerAd!.load();
+  }
+
+  /// 광고 노출 로깅
+  void _logAdImpression() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _analyticsService.logBannerImpression(
+        userId: user.uid,
+        adUnitId: AdConfig.bannerAdUnitId,
+        placement: widget.placement,
+      );
+    }
+  }
+
+  /// 광고 클릭 로깅
+  void _logAdClick() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _analyticsService.logBannerClick(
+        userId: user.uid,
+        adUnitId: AdConfig.bannerAdUnitId,
+        placement: widget.placement,
+      );
+    }
+  }
+
+  /// 광고 로딩 실패 로깅
+  void _logAdFailed(String errorMessage) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _analyticsService.logAdFailed(
+        userId: user.uid,
+        adType: AdType.banner,
+        adUnitId: AdConfig.bannerAdUnitId,
+        placement: widget.placement,
+        errorMessage: errorMessage,
+      );
+    }
   }
 
   @override

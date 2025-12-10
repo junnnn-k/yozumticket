@@ -9,7 +9,9 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../core/constants/ad_config.dart';
 import '../services/ad_service.dart';
 import '../services/user_service.dart';
+import '../services/ad_analytics_service.dart';
 import '../models/user_model.dart';
+import '../models/ad_interaction_model.dart';
 
 /// 리워드 타입
 enum RewardType {
@@ -23,6 +25,7 @@ class RewardedAdManager {
   RewardedAdManager._internal();
 
   final UserService _userService = UserService();
+  final AdAnalyticsService _analyticsService = AdAnalyticsService();
 
   RewardedAd? _rewardedAd;
   bool _isAdLoading = false;
@@ -72,6 +75,9 @@ class RewardedAdManager {
           _isAdLoading = false;
           _isAdReady = false;
           _rewardedAd = null;
+
+          // 로딩 실패 로깅 (userId 없이)
+          // TODO: 사용자 컨텍스트에서 호출 시 로깅 추가
         },
       ),
     );
@@ -187,8 +193,28 @@ class RewardedAdManager {
           name: 'RewardedAdManager',
         );
 
+        // 노출 로깅
+        await _analyticsService.logRewardedImpression(
+          userId: userId,
+          adUnitId: AdConfig.rewardedAdUnitId,
+          rewardType: rewardType.name,
+        );
+
         // 보상 지급
         rewardGranted = await _grantReward(userId, rewardType);
+
+        // 보상 지급 로깅
+        if (rewardGranted) {
+          await _analyticsService.logRewardGranted(
+            userId: userId,
+            adUnitId: AdConfig.rewardedAdUnitId,
+            rewardType: rewardType.name,
+            metadata: {
+              'rewardAmount': reward.amount,
+              'rewardTypeName': reward.type,
+            },
+          );
+        }
 
         // 일일 카운터 증가
         await _userService.incrementRewardedAdCount(userId);

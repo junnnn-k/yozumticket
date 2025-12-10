@@ -1,0 +1,48 @@
+// Firestore Security Rules for Ad Interactions Collection
+//
+// adInteractions 컬렉션에 대한 보안 규칙
+//
+// 경로: /adInteractions/{interactionId}
+//
+// 규칙:
+// - 읽기: 본인의 광고 상호작용만 읽을 수 있음
+// - 쓰기: 인증된 사용자만 본인 ID로 작성 가능
+// - 수정/삭제: 금지 (분석 데이터 무결성 유지)
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // adInteractions 컬렉션
+    match /adInteractions/{interactionId} {
+      // 인증된 사용자인지 확인
+      function isAuthenticated() {
+        return request.auth != null;
+      }
+
+      // 본인의 데이터인지 확인
+      function isOwner() {
+        return request.auth.uid == resource.data.userId;
+      }
+
+      // 본인 ID로 작성하는지 확인
+      function isCreatingOwnData() {
+        return request.auth.uid == request.resource.data.userId;
+      }
+
+      // 읽기: 본인의 광고 상호작용만
+      allow read: if isAuthenticated() && isOwner();
+
+      // 생성: 인증된 사용자가 본인 ID로 작성
+      allow create: if isAuthenticated() && isCreatingOwnData();
+
+      // 수정/삭제: 금지 (분석 데이터 무결성)
+      allow update, delete: if false;
+    }
+  }
+}
+
+// Firebase Console에서 적용 방법:
+// 1. Firebase Console > Firestore Database > 규칙 탭
+// 2. 위 규칙을 기존 규칙에 추가
+// 3. "게시" 버튼 클릭
