@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FCM 알림 색상 (앱의 Primary 색상과 일치하도록 설정) -->
+    <color name="notification_color">#FF6200EE</color>
+</resources>

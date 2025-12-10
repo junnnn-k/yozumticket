@@ -28,6 +28,9 @@ class UserModel {
   final List<String> ownedThemes; // 구매한 테마 ID 목록
   final List<String> purchaseHistory; // 구매 이력 (productId 목록)
 
+  // FCM 관련 필드 (v3.2)
+  final String? fcmToken; // FCM 토큰 (푸시 알림용)
+
   UserModel({
     // 기본 프로필 정보
     required this.uid,
@@ -51,6 +54,8 @@ class UserModel {
     this.lastRewardedAdDate,
     this.ownedThemes = const [],
     this.purchaseHistory = const [],
+    // FCM 관련 필드
+    this.fcmToken,
   });
 
   /// Firestore 문서로 변환
@@ -84,6 +89,8 @@ class UserModel {
           : null,
       'ownedThemes': ownedThemes,
       'purchaseHistory': purchaseHistory,
+      // FCM 관련 필드
+      'fcmToken': fcmToken,
     };
   }
 
@@ -118,6 +125,8 @@ class UserModel {
           : null,
       ownedThemes: List<String>.from(json['ownedThemes'] as List? ?? []),
       purchaseHistory: List<String>.from(json['purchaseHistory'] as List? ?? []),
+      // FCM 관련 필드
+      fcmToken: json['fcmToken'] as String?,
     );
   }
 
@@ -149,6 +158,7 @@ class UserModel {
     DateTime? lastRewardedAdDate,
     List<String>? ownedThemes,
     List<String>? purchaseHistory,
+    String? fcmToken,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -171,6 +181,7 @@ class UserModel {
       lastRewardedAdDate: lastRewardedAdDate ?? this.lastRewardedAdDate,
       ownedThemes: ownedThemes ?? this.ownedThemes,
       purchaseHistory: purchaseHistory ?? this.purchaseHistory,
+      fcmToken: fcmToken ?? this.fcmToken,
     );
   }
 

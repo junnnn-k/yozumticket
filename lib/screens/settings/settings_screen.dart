@@ -206,6 +206,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final authProvider = context.watch<auth.AuthProvider>();
+    final currentUser = authProvider.userModel;
 
     return Scaffold(
       appBar: AppBar(
@@ -214,6 +216,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
+          // 프리미엄 구독 섹션 (무료 사용자만)
+          if (currentUser?.isPremium != true) ...[
+            _SectionHeader(title: '프리미엄'),
+            ListTile(
+              leading: const Icon(Icons.workspace_premium, color: Colors.amber),
+              title: const Text('프리미엄 구독'),
+              subtitle: const Text('광고 제거 및 모든 기능 잠금 해제'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.push('/premium-subscription');
+              },
+            ),
+            const Divider(height: 1),
+          ],
+
+          // 프리미엄 구독 정보 (프리미엄 사용자만)
+          if (currentUser?.isPremium == true) ...[
+            _SectionHeader(title: '프리미엄'),
+            ListTile(
+              leading: Icon(Icons.verified, color: theme.colorScheme.primary),
+              title: const Text('프리미엄 구독 중'),
+              subtitle: Text(
+                '${currentUser!.subscriptionType} 구독 이용 중',
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.push('/premium-subscription');
+              },
+            ),
+            const Divider(height: 1),
+          ],
+
           // 알림 설정 섹션
           _SectionHeader(title: '알림 설정'),
           SwitchListTile(

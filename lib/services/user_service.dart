@@ -175,6 +175,37 @@ class UserService {
     await updateUser(uid, {'username': username});
   }
 
+  /// 프리미엄 구독 활성화
+  Future<void> activatePremiumSubscription({
+    required String uid,
+    required String subscriptionType,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    await updateUser(uid, {
+      'isPremium': true,
+      'subscriptionType': subscriptionType,
+      'subscriptionStartDate': Timestamp.fromDate(startDate),
+      'subscriptionEndDate': Timestamp.fromDate(endDate),
+      'maxPhotosPerPost': 20,
+      'maxSharedArchives': -1,
+      'showBannerAds': false,
+    });
+  }
+
+  /// 프리미엄 구독 해지
+  Future<void> cancelPremiumSubscription(String uid) async {
+    await updateUser(uid, {
+      'isPremium': false,
+      'subscriptionType': null,
+      'subscriptionStartDate': null,
+      'subscriptionEndDate': null,
+      'maxPhotosPerPost': 3,
+      'maxSharedArchives': 2,
+      'showBannerAds': true,
+    });
+  }
+
   /// 사용자 존재 여부 확인
   Future<bool> userExists(String uid) async {
     try {
@@ -407,6 +438,40 @@ class UserService {
       print('[UserService] Ad settings updated: $uid -> showBannerAds: $showBannerAds');
     } catch (e) {
       print('[UserService] Failed to update ad settings: $e');
+      rethrow;
+    }
+  }
+
+  // ============================================================================
+  // FCM 관련 메서드 (v3.2)
+  // ============================================================================
+
+  /// FCM 토큰 업데이트
+  ///
+  /// 푸시 알림을 위한 FCM 토큰 저장
+  Future<void> updateFCMToken(String uid, String fcmToken) async {
+    try {
+      await updateUser(uid, {
+        'fcmToken': fcmToken,
+      });
+      print('[UserService] FCM token updated: $uid');
+    } catch (e) {
+      print('[UserService] Failed to update FCM token: $e');
+      rethrow;
+    }
+  }
+
+  /// FCM 토큰 삭제
+  ///
+  /// 로그아웃 시 호출
+  Future<void> deleteFCMToken(String uid) async {
+    try {
+      await updateUser(uid, {
+        'fcmToken': null,
+      });
+      print('[UserService] FCM token deleted: $uid');
+    } catch (e) {
+      print('[UserService] Failed to delete FCM token: $e');
       rethrow;
     }
   }
