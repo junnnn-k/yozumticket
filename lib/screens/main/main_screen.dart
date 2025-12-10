@@ -11,7 +11,9 @@ import '../../models/badge_model.dart' as badge_model;
 import '../../services/post_service.dart';
 import '../../services/friend_service.dart';
 import '../../providers/auth_provider.dart' as auth;
+import '../../providers/shared_archives_provider.dart';
 import '../archive/archive_screen.dart';
+import '../archive/shared_archives_list_screen.dart';
 
 /// 메인 화면 (하단 탭 네비게이션)
 /// 4개 탭: 홈, 기록, 친구, MY
@@ -565,7 +567,9 @@ class _FriendsTab extends StatefulWidget {
   State<_FriendsTab> createState() => _FriendsTabState();
 }
 
-class _FriendsTabState extends State<_FriendsTab> {
+class _FriendsTabState extends State<_FriendsTab>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final FriendService _friendService = FriendService();
   List<UserModel> _friends = [];
   int _pendingRequestCount = 0;
@@ -574,7 +578,14 @@ class _FriendsTabState extends State<_FriendsTab> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadFriends();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   /// 친구 목록 로드
@@ -673,66 +684,100 @@ class _FriendsTabState extends State<_FriendsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('친구'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: '친구 목록'),
+            Tab(text: '공유 아카이브'),
+          ],
+        ),
         actions: [
-          // 친구 요청 버튼 (배지 포함)
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications),
-                onPressed: () async {
-                  await context.push('/friend-requests');
-                  // 돌아왔을 때 새로고침
-                  _loadFriends();
-                },
-              ),
-              if (_pendingRequestCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '$_pendingRequestCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
+          // 친구 요청 버튼 (배지 포함) - 첫번째 탭에서만 보임
+          AnimatedBuilder(
+            animation: _tabController,
+            builder: (context, child) {
+              return _tabController.index == 0
+                  ? Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications),
+                          onPressed: () async {
+                            await context.push('/friend-requests');
+                            _loadFriends();
+                          },
+                        ),
+                        if (_pendingRequestCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '$_pendingRequestCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : const SizedBox.shrink();
+            },
           ),
-          // 친구 검색 버튼
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () async {
-              await context.push('/search-friends');
-              // 돌아왔을 때 새로고침
-              _loadFriends();
+          // 친구 검색 버튼 (첫번째 탭) 또는 아카이브 생성 버튼 (두번째 탭)
+          AnimatedBuilder(
+            animation: _tabController,
+            builder: (context, child) {
+              return _tabController.index == 0
+                  ? IconButton(
+                      icon: const Icon(Icons.person_add),
+                      onPressed: () async {
+                        await context.push('/search-friends');
+                        _loadFriends();
+                      },
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () {
+                        context.push('/create-shared-archive');
+                      },
+                    );
             },
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadFriends,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _friends.isEmpty
-                ? _buildEmptyState()
-                : _buildFriendsList(),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // 친구 목록 탭
+          RefreshIndicator(
+            onRefresh: _loadFriends,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _friends.isEmpty
+                    ? _buildEmptyState()
+                    : _buildFriendsList(),
+          ),
+          // 공유 아카이브 탭
+          const SharedArchivesListScreen(),
+        ],
       ),
     );
   }

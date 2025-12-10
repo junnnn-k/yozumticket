@@ -17,6 +17,7 @@ import '../../screens/friends/friend_requests_screen.dart';
 import '../../screens/friends/friend_profile_screen.dart';
 import '../../screens/archive/create_shared_archive_screen.dart';
 import '../../screens/archive/shared_archive_detail_screen.dart';
+import '../../screens/archive/select_posts_screen.dart';
 import '../../models/post_model.dart';
 import '../../models/user_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
@@ -149,6 +150,15 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final archiveId = state.pathParameters['archiveId']!;
         return SharedArchiveDetailScreen(archiveId: archiveId);
+      },
+    ),
+
+    // 게시물 선택 화면 (공유 아카이브용)
+    GoRoute(
+      path: '/select-posts/:archiveId',
+      builder: (context, state) {
+        final archiveId = state.pathParameters['archiveId']!;
+        return SelectPostsScreen(archiveId: archiveId);
       },
     ),
 

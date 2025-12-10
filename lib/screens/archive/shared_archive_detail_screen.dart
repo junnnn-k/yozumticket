@@ -414,11 +414,14 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: 게시물 선택 화면으로 이동
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('게시물 추가 기능은 Day 41에 구현됩니다')),
+        onPressed: () async {
+          final result = await context.push(
+            '/select-posts/${widget.archiveId}',
           );
+          // 게시물 추가 후 새로고침
+          if (result == true) {
+            _loadArchiveData();
+          }
         },
         icon: const Icon(Icons.add),
         label: const Text('게시물 추가'),
