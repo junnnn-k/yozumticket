@@ -9,7 +9,7 @@ import '../../services/image_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/post_service.dart';
 import '../../core/constants/baseball_data.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart' as app_auth;
 
 /// 게시글 작성 화면
 class PostCreateScreen extends StatefulWidget {
@@ -54,7 +54,7 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
   Future<void> _pickAdditionalPhotos() async {
     try {
       // 현재 사용자 정보 가져오기
-      final authProvider = context.read<AuthProvider>();
+      final authProvider = context.read<app_auth.AuthProvider>();
       final currentUser = authProvider.currentUser;
 
       if (currentUser == null) {
@@ -519,7 +519,7 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
   /// 추가 사진
   Widget _buildAdditionalPhotos(ColorScheme colorScheme) {
     // 현재 사용자의 사진 제한 가져오기
-    final authProvider = context.watch<AuthProvider>();
+    final authProvider = context.watch<app_auth.AuthProvider>();
     final currentUser = authProvider.currentUser;
     final maxPhotos = currentUser?.maxPhotosPerPost ?? 3; // 기본값: 무료 사용자
     final isLimitReached = _additionalPhotos.length >= maxPhotos;

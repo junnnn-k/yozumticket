@@ -23,6 +23,9 @@ class AuthProvider extends ChangeNotifier {
   /// 현재 UserModel (Firestore 사용자 정보)
   UserModel? get userModel => _userModel;
 
+  /// 현재 사용자 (userModel과 동일, 별칭)
+  UserModel? get currentUser => _userModel;
+
   /// 로딩 상태
   bool get isLoading => _isLoading;
 

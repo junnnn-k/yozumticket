@@ -52,5 +52,16 @@
 	<string>티켓 이미지를 선택하기 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>편집한 이미지를 저장하기 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
+	<!-- AdMob App ID (테스트용 ID - 실제 배포 시 변경 필요) -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- SKAdNetwork 식별자 (iOS 14+ 광고 추적) -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 </dict>
 </plist>
