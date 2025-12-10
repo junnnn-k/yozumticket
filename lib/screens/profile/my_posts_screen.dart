@@ -3,9 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/sizes.dart';
+import '../../core/constants/ad_config.dart';
 import '../../models/post_model.dart';
 import '../../services/post_service.dart';
+import '../../providers/auth_provider.dart' as auth;
+import '../../widgets/ads/ad_banner_card.dart';
 
 /// 내 게시글 목록 화면
 class MyPostsScreen extends StatefulWidget {
@@ -54,6 +58,35 @@ class _MyPostsScreenState extends State<MyPostsScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  /// 총 아이템 개수 계산 (게시물 + 광고)
+  int _calculateItemCount(int postCount,
+      {required bool isPremium, required bool showAds}) {
+    if (isPremium || !showAds) {
+      return postCount;
+    }
+    // 7개당 1개 광고 삽입
+    final adCount = (postCount / AdConfig.bannerAdInterval).floor();
+    return postCount + adCount;
+  }
+
+  /// 해당 인덱스가 광고 위치인지 확인
+  bool _isAdPosition(int index) {
+    // 7, 15, 23, 31, ... 위치에 광고 표시 (7개마다)
+    return (index + 1) % (AdConfig.bannerAdInterval + 1) == 0;
+  }
+
+  /// 광고 번호 계산
+  int _getAdPosition(int index) {
+    return (index / (AdConfig.bannerAdInterval + 1)).floor();
+  }
+
+  /// 실제 게시물 인덱스 계산
+  int _getPostIndex(int index) {
+    // 광고를 제외한 실제 게시물 인덱스
+    final adCount = (index / (AdConfig.bannerAdInterval + 1)).floor();
+    return index - adCount;
   }
 
   @override
@@ -128,18 +161,48 @@ class _MyPostsScreenState extends State<MyPostsScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _loadPosts,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(AppSizes.md),
-                        itemCount: _posts.length,
-                        itemBuilder: (context, index) {
-                          final post = _posts[index];
-                          return Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: AppSizes.md),
-                            child: _PostCard(
-                              post: post,
-                              onDeleted: _loadPosts,
-                            ),
+                      child: Consumer<auth.AuthProvider>(
+                        builder: (context, authProvider, _) {
+                          final isPremium =
+                              authProvider.currentUser?.isPremium ?? false;
+                          final showAds =
+                              authProvider.currentUser?.showBannerAds ?? true;
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(AppSizes.md),
+                            itemCount: _calculateItemCount(_posts.length,
+                                isPremium: isPremium, showAds: showAds),
+                            itemBuilder: (context, index) {
+                              // 광고 표시 여부 및 위치 계산
+                              if (!isPremium &&
+                                  showAds &&
+                                  _isAdPosition(index)) {
+                                final adPosition = _getAdPosition(index);
+                                return AdBannerCard(
+                                  position: adPosition,
+                                  isPremium: isPremium,
+                                );
+                              }
+
+                              // 실제 게시물 인덱스 계산
+                              final postIndex = !isPremium && showAds
+                                  ? _getPostIndex(index)
+                                  : index;
+
+                              if (postIndex >= _posts.length) {
+                                return const SizedBox.shrink();
+                              }
+
+                              final post = _posts[postIndex];
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.only(bottom: AppSizes.md),
+                                child: _PostCard(
+                                  post: post,
+                                  onDeleted: _loadPosts,
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
