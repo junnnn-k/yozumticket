@@ -4,18 +4,24 @@
 
 요즘티켓 앱의 Google AdMob 광고 시스템입니다. 무료 사용자에게 배너 광고와 리워드 광고를 표시하여 수익을 창출합니다.
 
+### 광고 유형
+- **배너 광고**: 게시물 목록에 7개당 1개씩 자동 삽입
+- **리워드 광고**: 사용자가 시청하고 보상을 받는 전면 광고 (일일 3회 제한)
+
 ## 파일 구조
 
 ```
 lib/
 ├── core/constants/
-│   └── ad_config.dart              # 광고 설정 (광고 ID, 간격 등)
+│   └── ad_config.dart                 # 광고 설정 (광고 ID, 간격 등)
 ├── services/
-│   └── ad_service.dart             # AdMob SDK 초기화
+│   ├── ad_service.dart                # AdMob SDK 초기화
+│   └── rewarded_ad_manager.dart       # 리워드 광고 관리자
 └── widgets/ads/
-    ├── banner_ad_widget.dart       # 배너 광고 위젯
-    ├── ad_banner_card.dart         # 게시물 목록용 광고 카드
-    └── README.md                   # 이 문서
+    ├── banner_ad_widget.dart          # 배너 광고 위젯
+    ├── ad_banner_card.dart            # 게시물 목록용 광고 카드
+    ├── rewarded_ad_button.dart        # 리워드 광고 버튼
+    └── README.md                      # 이 문서
 ```
 
 ## 사용 방법
@@ -119,6 +125,57 @@ class AdConfig {
 3. `ad_config.dart`의 `_production*AdUnitId` 상수에 실제 ID 입력
 4. `isTestMode = false`로 변경
 5. `AndroidManifest.xml`과 `Info.plist`의 App ID도 변경
+
+### 3. 리워드 광고 표시
+
+#### 리워드 광고 버튼 사용
+
+```dart
+import 'package:yozumticket/widgets/ads/rewarded_ad_button.dart';
+import 'package:yozumticket/services/rewarded_ad_manager.dart';
+
+// 설정 화면이나 프로필 화면에 추가
+RewardedAdButton(
+  rewardType: RewardType.premiumTheme,  // 또는 RewardType.extraPhoto
+  onRewardGranted: () {
+    // 보상 지급 완료 후 콜백
+    print('보상이 지급되었습니다!');
+  },
+)
+```
+
+#### 리워드 광고 직접 제어
+
+```dart
+import 'package:yozumticket/services/rewarded_ad_manager.dart';
+
+final adManager = RewardedAdManager();
+
+// 광고 로드
+await adManager.loadAd();
+
+// 시청 가능 여부 확인
+final canWatch = await adManager.canWatchRewardedAd(userId);
+
+// 남은 횟수 조회
+final remaining = await adManager.getRemainingWatchCount(userId);
+
+// 광고 표시
+final success = await adManager.showRewardedAd(
+  context: context,
+  userId: userId,
+  rewardType: RewardType.premiumTheme,
+);
+```
+
+#### 리워드 타입
+
+```dart
+enum RewardType {
+  premiumTheme,  // 프리미엄 테마 1일 체험
+  extraPhoto,    // 추가 사진 1회 (20장)
+}
+```
 
 ## 프리미엄 사용자 광고 제어
 

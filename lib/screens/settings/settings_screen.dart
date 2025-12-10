@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/sizes.dart';
 import '../../services/user_service.dart';
+import '../../services/rewarded_ad_manager.dart';
 import '../../providers/auth_provider.dart' as auth;
+import '../../widgets/ads/rewarded_ad_button.dart';
 
 /// 설정 화면
 class SettingsScreen extends StatefulWidget {
@@ -258,6 +260,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           const SizedBox(height: 24),
+
+          // 리워드 광고 섹션 (무료 사용자만)
+          Consumer<auth.AuthProvider>(
+            builder: (context, authProvider, _) {
+              final isPremium = authProvider.currentUser?.isPremium ?? false;
+
+              // 프리미엄 사용자는 광고 섹션 숨김
+              if (isPremium) {
+                return const SizedBox.shrink();
+              }
+
+              return Column(
+                children: [
+                  _SectionHeader(title: '무료 혜택'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Column(
+                      children: [
+                        RewardedAdButton(
+                          rewardType: RewardType.premiumTheme,
+                          onRewardGranted: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('프리미엄 테마가 활성화되었습니다!'),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        RewardedAdButton(
+                          rewardType: RewardType.extraPhoto,
+                          onRewardGranted: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('추가 사진 슬롯이 활성화되었습니다!'),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              );
+            },
+          ),
 
           // 프라이버시 설정 섹션
           _SectionHeader(title: '프라이버시'),
