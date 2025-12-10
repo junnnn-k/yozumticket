@@ -15,6 +15,8 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/friends/search_friends_screen.dart';
 import '../../screens/friends/friend_requests_screen.dart';
 import '../../screens/friends/friend_profile_screen.dart';
+import '../../screens/archive/create_shared_archive_screen.dart';
+import '../../screens/archive/shared_archive_detail_screen.dart';
 import '../../models/post_model.dart';
 import '../../models/user_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
@@ -132,6 +134,21 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final friend = state.extra as UserModel;
         return FriendProfileScreen(friend: friend);
+      },
+    ),
+
+    // 공유 아카이브 생성 화면
+    GoRoute(
+      path: '/create-shared-archive',
+      builder: (context, state) => const CreateSharedArchiveScreen(),
+    ),
+
+    // 공유 아카이브 상세 화면
+    GoRoute(
+      path: '/shared-archive/:archiveId',
+      builder: (context, state) {
+        final archiveId = state.pathParameters['archiveId']!;
+        return SharedArchiveDetailScreen(archiveId: archiveId);
       },
     ),
 
