@@ -24,8 +24,14 @@ import '../../models/user_model.dart';
 import '../../screens/debug/firestore_test_screen.dart';
 import '../../screens/debug/storage_test_screen.dart';
 
+/// 글로벌 네비게이션을 위한 키
+///
+/// 알림 클릭 시 어디서든 네비게이션할 수 있도록 제공
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// 앱의 라우팅 설정
 final GoRouter router = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
     // Splash 화면

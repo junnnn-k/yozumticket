@@ -2,6 +2,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'user_service.dart';
+import 'local_notification_service.dart';
+import '../core/routes/app_router.dart';
+import '../core/utils/notification_navigation_helper.dart';
 
 /// FCM(Firebase Cloud Messaging) 서비스
 ///
@@ -13,38 +16,44 @@ class FCMService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final UserService _userService = UserService();
+  final LocalNotificationService _localNotifications =
+      LocalNotificationService();
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
 
   /// FCM 초기화
   ///
-  /// 1. 알림 권한 요청
-  /// 2. FCM 토큰 가져오기
-  /// 3. 토큰 갱신 리스너 등록
-  /// 4. 메시지 핸들러 등록
+  /// 1. 로컬 알림 초기화
+  /// 2. 알림 권한 요청
+  /// 3. FCM 토큰 가져오기
+  /// 4. 토큰 갱신 리스너 등록
+  /// 5. 메시지 핸들러 등록
   Future<void> initialize() async {
     try {
       print('[FCMService] Initializing FCM...');
 
-      // 1. 알림 권한 요청
+      // 1. 로컬 알림 초기화
+      await _localNotifications.initialize();
+
+      // 2. 알림 권한 요청
       final settings = await _requestPermission();
       if (settings.authorizationStatus != AuthorizationStatus.authorized) {
         print('[FCMService] Notification permission denied');
         return;
       }
 
-      // 2. FCM 토큰 가져오기
+      // 3. FCM 토큰 가져오기
       await _getToken();
 
-      // 3. 토큰 갱신 리스너
+      // 4. 토큰 갱신 리스너
       _messaging.onTokenRefresh.listen((newToken) {
         print('[FCMService] Token refreshed: $newToken');
         _fcmToken = newToken;
         _saveTokenToFirestore(newToken);
       });
 
-      // 4. 메시지 핸들러 등록
+      // 5. 메시지 핸들러 등록
       _setupMessageHandlers();
 
       print('[FCMService] FCM initialized successfully');
@@ -127,8 +136,15 @@ class FCMService {
     print('Body: ${message.notification?.body}');
     print('Data: ${message.data}');
 
-    // TODO: 로컬 알림 표시 (flutter_local_notifications 패키지 사용)
-    // 현재는 로그만 출력
+    // 로컬 알림 표시
+    if (message.notification != null) {
+      _localNotifications.showNotification(
+        id: message.hashCode,
+        title: message.notification!.title ?? '요즘티켓',
+        body: message.notification!.body ?? '',
+        data: message.data,
+      );
+    }
   }
 
   /// Background 메시지 처리
@@ -158,28 +174,10 @@ class FCMService {
 
   /// 알림 데이터에 따른 네비게이션 처리
   void _handleNotificationNavigation(Map<String, dynamic> data) {
-    final type = data['type'];
-    print('[FCMService] Navigation type: $type');
+    print('[FCMService] Handling notification navigation');
 
-    // TODO: GoRouter를 사용한 네비게이션 구현
-    switch (type) {
-      case 'friend_request':
-        // 친구 요청 화면으로 이동
-        print('[FCMService] Navigate to friend requests');
-        break;
-      case 'new_post':
-        // 게시글 상세 화면으로 이동
-        final postId = data['postId'];
-        print('[FCMService] Navigate to post: $postId');
-        break;
-      case 'archive_invite':
-        // 공유 아카이브 상세 화면으로 이동
-        final archiveId = data['archiveId'];
-        print('[FCMService] Navigate to archive: $archiveId');
-        break;
-      default:
-        print('[FCMService] Unknown notification type: $type');
-    }
+    // GoRouter를 사용하여 네비게이션
+    NotificationNavigationHelper.navigate(router, data);
   }
 
   /// FCM 토큰 삭제
