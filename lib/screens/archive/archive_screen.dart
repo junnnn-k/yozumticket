@@ -6,8 +6,6 @@ import '../../core/constants/sizes.dart';
 import '../../core/constants/baseball_data.dart';
 import '../../models/post_model.dart';
 import '../../services/post_service.dart';
-import '../../widgets/archive/post_grid_item.dart';
-import '../../widgets/archive/post_list_item.dart';
 
 /// 기록(Archive) 화면
 /// - 4가지 뷰 모드: 그리드, 리스트, 캘린더, 구장별

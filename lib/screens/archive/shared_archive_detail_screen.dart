@@ -135,6 +135,7 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
       );
 
       if (!mounted) return;
+      if (!context.mounted) return;
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -183,6 +184,7 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
       final success = await archivesProvider.deleteArchive(widget.archiveId);
 
       if (!mounted) return;
+      if (!context.mounted) return;
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -317,10 +319,10 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
                   margin: const EdgeInsets.only(bottom: AppSizes.sm),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: member.profileImageUrl != null
-                          ? NetworkImage(member.profileImageUrl!)
+                      backgroundImage: member.profileImageUrl.isNotEmpty
+                          ? NetworkImage(member.profileImageUrl)
                           : null,
-                      child: member.profileImageUrl == null
+                      child: member.profileImageUrl.isEmpty
                           ? Text(member.username[0].toUpperCase())
                           : null,
                     ),

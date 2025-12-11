@@ -51,8 +51,8 @@ class _SearchFriendsScreenState extends State<SearchFriendsScreen> {
     });
 
     try {
-      final results = await _userService.searchUsersByName(query);
       final currentUser = context.read<AuthProvider>().userModel;
+      final results = await _userService.searchUsersByName(query);
 
       // 자기 자신은 검색 결과에서 제외
       final filteredResults = results
@@ -185,10 +185,10 @@ class _SearchFriendsScreenState extends State<SearchFriendsScreen> {
     });
 
     try {
+      final currentUser = context.read<AuthProvider>().userModel;
       await _friendService.acceptFriendRequest(friendship.id);
 
       // 캐시 업데이트
-      final currentUser = context.read<AuthProvider>().userModel;
       if (currentUser != null) {
         final updatedFriendship = await _friendService.checkFriendship(
           currentUser.uid,

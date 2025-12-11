@@ -31,8 +31,10 @@ class _SharedArchivesListScreenState extends State<SharedArchivesListScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       // Provider의 userId 설정 (실시간 스트림 구독 시작)
-      Future.microtask(() {
-        context.read<SharedArchivesProvider>().setUserId(user.uid);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<SharedArchivesProvider>().setUserId(user.uid);
+        }
       });
     }
   }

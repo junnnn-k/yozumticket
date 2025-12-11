@@ -252,10 +252,10 @@ class _CreateSharedArchiveScreenState extends State<CreateSharedArchiveScreen> {
                         ? Text('응원팀: ${friend.favoriteTeams.join(', ')}')
                         : null,
                     secondary: CircleAvatar(
-                      backgroundImage: friend.profileImageUrl != null
-                          ? NetworkImage(friend.profileImageUrl!)
+                      backgroundImage: friend.profileImageUrl.isNotEmpty
+                          ? NetworkImage(friend.profileImageUrl)
                           : null,
-                      child: friend.profileImageUrl == null
+                      child: friend.profileImageUrl.isEmpty
                           ? Text(friend.username[0].toUpperCase())
                           : null,
                     ),
