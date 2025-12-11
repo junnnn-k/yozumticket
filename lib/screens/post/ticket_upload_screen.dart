@@ -149,7 +149,6 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(

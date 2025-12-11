@@ -173,12 +173,14 @@ class RewardedAdManager {
     // 시청 가능 여부 확인
     final canWatch = await canWatchRewardedAd(userId);
     if (!canWatch) {
+      if (!context.mounted) return false;
       _showDailyLimitDialog(context);
       return false;
     }
 
     // 광고 준비 확인
     if (!_isAdReady || _rewardedAd == null) {
+      if (!context.mounted) return false;
       _showAdNotReadyDialog(context);
       return false;
     }

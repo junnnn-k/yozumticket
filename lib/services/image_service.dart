@@ -34,7 +34,7 @@ class ImageService {
   /// Android 버전 확인
   Future<int> _getAndroidVersion() async {
     if (Platform.isAndroid) {
-      final androidInfo = await Permission.storage.status;
+      await Permission.storage.status; // 권한 상태 확인
       return 33; // 기본값으로 33 반환 (안전한 쪽으로)
     }
     return 0;

@@ -306,7 +306,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 
   /// 빈 상태
   Widget _buildEmptyState() {
-    final theme = Theme.of(context);
     final hasFilters = _selectedTeams.isNotEmpty ||
         _selectedStadiums.isNotEmpty ||
         _minRating != null;

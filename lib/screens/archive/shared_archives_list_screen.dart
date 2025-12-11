@@ -52,8 +52,8 @@ class _SharedArchivesListScreenState extends State<SharedArchivesListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () async {
-              final result = await context.push('/create-shared-archive');
+            onPressed: () {
+              context.push('/create-shared-archive');
               // 아카이브 생성 후 자동으로 업데이트됨 (실시간 스트림)
             },
             tooltip: '새 아카이브 만들기',
@@ -220,8 +220,6 @@ class _SharedArchivesListScreenState extends State<SharedArchivesListScreen> {
 
   /// 빈 상태 위젯
   Widget _buildEmptyState(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

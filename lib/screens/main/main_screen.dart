@@ -684,8 +684,6 @@ class _FriendsTabState extends State<_FriendsTab>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('친구'),

@@ -64,15 +64,12 @@ class OcrService {
   double calculateConfidence(RecognizedText recognizedText) {
     if (recognizedText.blocks.isEmpty) return 0.0;
 
-    double totalConfidence = 0.0;
     int lineCount = 0;
 
     for (final block in recognizedText.blocks) {
-      for (final line in block.lines) {
-        // ML Kit의 confidence는 일반적으로 암묵적으로 높게 평가됨
-        // 실제로는 텍스트 길이와 블록 수로 품질 추정
-        lineCount++;
-      }
+      // ML Kit의 confidence는 일반적으로 암묵적으로 높게 평가됨
+      // 실제로는 텍스트 길이와 블록 수로 품질 추정
+      lineCount += block.lines.length;
     }
 
     // 간단한 휴리스틱: 많은 텍스트가 인식되면 신뢰도 높음

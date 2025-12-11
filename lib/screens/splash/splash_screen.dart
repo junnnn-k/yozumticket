@@ -80,10 +80,12 @@ class _SplashScreenState extends State<SplashScreen>
         // UserModel이 없으면 로그아웃 후 로그인 화면으로 이동
         debugPrint('⚠️ UserModel이 없습니다. 로그아웃 후 재로그인 필요');
         await FirebaseAuth.instance.signOut();
+        if (!mounted || !context.mounted) return;
         context.go('/login');
       } else {
         // 정상 로그인: 메인 화면으로 이동
         debugPrint('✅ 로그인 상태: ${user.email ?? user.uid}');
+        if (!mounted || !context.mounted) return;
         context.go('/main');
       }
     } catch (e) {
@@ -91,6 +93,7 @@ class _SplashScreenState extends State<SplashScreen>
       debugPrint('❌ 사용자 정보 확인 실패: $e');
       if (mounted) {
         await FirebaseAuth.instance.signOut();
+        if (!mounted || !context.mounted) return;
         context.go('/login');
       }
     }

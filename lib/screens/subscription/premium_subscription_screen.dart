@@ -82,6 +82,8 @@ class _PremiumSubscriptionScreenState extends State<PremiumSubscriptionScreen> {
       if (mounted) {
         await context.read<auth.AuthProvider>().refreshUserModel();
 
+        if (!mounted || !context.mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('프리미엄 구독이 활성화되었습니다! 🎉'),
