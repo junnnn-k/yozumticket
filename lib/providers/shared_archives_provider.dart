@@ -48,19 +48,17 @@ class SharedArchivesProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // 첫 데이터 수신 여부 추적
+    bool hasReceivedFirstData = false;
+
     _archivesSubscription = _archiveService
         .getMyArchivesStream(userId)
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: (sink) {
-            sink.addError('타임아웃: 서버 응답이 없습니다');
-          },
-        )
         .listen(
           (archives) {
             _archives = archives;
             _isLoading = false;
             _errorMessage = null;
+            hasReceivedFirstData = true;
             notifyListeners();
           },
           onError: (error) {
@@ -69,8 +67,6 @@ class SharedArchivesProvider extends ChangeNotifier {
             if (error.toString().contains('index') ||
                 error.toString().contains('FAILED_PRECONDITION')) {
               _errorMessage = '인덱스 빌드 중입니다.\n잠시 후 다시 시도해주세요.';
-            } else if (error.toString().contains('타임아웃')) {
-              _errorMessage = '서버 응답이 없습니다.\n네트워크를 확인해주세요.';
             } else {
               _errorMessage = '아카이브 목록을 불러오지 못했습니다';
             }
@@ -79,6 +75,16 @@ class SharedArchivesProvider extends ChangeNotifier {
           },
           cancelOnError: false, // 에러 발생 시에도 스트림 유지
         );
+
+    // 첫 데이터 로딩 타임아웃 체크 (10초)
+    Future.delayed(const Duration(seconds: 10), () {
+      // 10초 후에도 첫 데이터를 받지 못하고 여전히 로딩 중이면 타임아웃
+      if (_isLoading && !hasReceivedFirstData) {
+        _errorMessage = '서버 응답이 없습니다.\n네트워크를 확인해주세요.';
+        _isLoading = false;
+        notifyListeners();
+      }
+    });
   }
 
   /// 아카이브 생성
