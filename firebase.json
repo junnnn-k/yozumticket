@@ -1,1 +1,26 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"yozumticket","appId":"1:251717313238:android:588483db14826796965f77","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"yozumticket","configurations":{"android":"1:251717313238:android:588483db14826796965f77","ios":"1:251717313238:ios:fcf0a4e132217e37965f77"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "yozumticket",
+          "appId": "1:251717313238:android:588483db14826796965f77",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "yozumticket",
+          "configurations": {
+            "android": "1:251717313238:android:588483db14826796965f77",
+            "ios": "1:251717313238:ios:fcf0a4e132217e37965f77"
+          }
+        }
+      }
+    }
+  }
+}

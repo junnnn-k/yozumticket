@@ -591,7 +591,15 @@ class _FriendsTabState extends State<_FriendsTab>
   /// 친구 목록 로드
   Future<void> _loadFriends() async {
     final currentUser = context.read<auth.AuthProvider>().userModel;
-    if (currentUser == null) return;
+    if (currentUser == null) {
+      // 로그인하지 않은 경우 로딩 상태 해제
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -603,23 +611,26 @@ class _FriendsTabState extends State<_FriendsTab>
         _friendService.getPendingRequestCount(currentUser.uid),
       ]);
 
+      if (!mounted) return;
+
       setState(() {
         _friends = results[0] as List<UserModel>;
         _pendingRequestCount = results[1] as int;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('오류가 발생했습니다: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

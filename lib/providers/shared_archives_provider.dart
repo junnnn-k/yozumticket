@@ -39,6 +39,7 @@ class SharedArchivesProvider extends ChangeNotifier {
     _errorMessage = null;
 
     if (userId == null) {
+      _isLoading = false;
       notifyListeners();
       return;
     }
@@ -49,6 +50,12 @@ class SharedArchivesProvider extends ChangeNotifier {
 
     _archivesSubscription = _archiveService
         .getMyArchivesStream(userId)
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: (sink) {
+            sink.addError('타임아웃: 서버 응답이 없습니다');
+          },
+        )
         .listen(
           (archives) {
             _archives = archives;
@@ -57,10 +64,20 @@ class SharedArchivesProvider extends ChangeNotifier {
             notifyListeners();
           },
           onError: (error) {
-            _errorMessage = '아카이브 목록을 불러오지 못했습니다';
+            print('SharedArchivesProvider Error: $error');
+            // Firestore 인덱스 에러 감지
+            if (error.toString().contains('index') ||
+                error.toString().contains('FAILED_PRECONDITION')) {
+              _errorMessage = '인덱스 빌드 중입니다.\n잠시 후 다시 시도해주세요.';
+            } else if (error.toString().contains('타임아웃')) {
+              _errorMessage = '서버 응답이 없습니다.\n네트워크를 확인해주세요.';
+            } else {
+              _errorMessage = '아카이브 목록을 불러오지 못했습니다';
+            }
             _isLoading = false;
             notifyListeners();
           },
+          cancelOnError: false, // 에러 발생 시에도 스트림 유지
         );
   }
 
