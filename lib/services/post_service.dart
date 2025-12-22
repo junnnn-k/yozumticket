@@ -277,7 +277,7 @@ class PostService {
       final query = await _firestore
           .collection(_collectionName)
           .where('userId', isEqualTo: friendId)
-          .where('privacy', whereIn: ['public', 'friends'])
+          .where('privacy', isEqualTo: 'friends')
           .get();
 
       return query.docs.length;
