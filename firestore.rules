@@ -63,8 +63,11 @@ service cloud.firestore {
         && isPostOwner()
         // userId는 변경 불가
         && request.resource.data.userId == resource.data.userId
-        // updatedAt은 현재 시간으로 갱신
-        && request.resource.data.updatedAt == request.time;
+        // 유효한 프라이버시 설정 (private, friends만 허용)
+        && request.resource.data.privacy in ['private', 'friends']
+        // mood 필드 검증 (선택적)
+        && (!request.resource.data.keys().hasAny(['mood'])
+            || request.resource.data.mood in ['excited', 'happy', 'normal', 'sad', 'angry']);
 
       // 삭제 규칙
       allow delete: if isAuthenticated() && isPostOwner();
