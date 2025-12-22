@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../models/friendship_model.dart';
 import '../../models/user_model.dart';
 import '../../services/friend_service.dart';
@@ -200,6 +201,15 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
         appBar: AppBar(
           title: const Text('친구 요청'),
           backgroundColor: theme.colorScheme.surface,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history),
+              onPressed: () {
+                context.push('/friend-request-history');
+              },
+              tooltip: '요청 이력',
+            ),
+          ],
           bottom: TabBar(
           onTap: (index) {
             setState(() {

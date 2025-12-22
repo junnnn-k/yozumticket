@@ -8,27 +8,135 @@ import 'package:permission_handler/permission_handler.dart';
 class ImageService {
   final ImagePicker _picker = ImagePicker();
 
+  /// 최대 파일 크기 (10MB)
+  static const int maxFileSizeInBytes = 10 * 1024 * 1024;
+
   /// 카메라 권한 요청
-  Future<bool> _requestCameraPermission() async {
-    final status = await Permission.camera.request();
+  Future<bool> _requestCameraPermission(BuildContext? context) async {
+    var status = await Permission.camera.status;
+
+    // 권한이 영구적으로 거부되었거나 거부된 경우
+    if (status.isPermanentlyDenied || status.isDenied) {
+      if (context != null) {
+        // 설정 안내 다이얼로그 표시
+        final shouldOpenSettings = await _showPermissionDialog(
+          context,
+          '카메라',
+          '티켓 사진을 촬영하려면 카메라 권한이 필요합니다.\n설정에서 권한을 허용해주세요.',
+        );
+
+        if (shouldOpenSettings) {
+          await openAppSettings();
+        }
+      }
+      return false;
+    }
+
+    // 권한이 아직 요청되지 않은 경우
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
+
+      // 거부된 경우 다이얼로그 표시
+      if (!status.isGranted && context != null) {
+        final shouldOpenSettings = await _showPermissionDialog(
+          context,
+          '카메라',
+          '티켓 사진을 촬영하려면 카메라 권한이 필요합니다.\n설정에서 권한을 허용해주세요.',
+        );
+
+        if (shouldOpenSettings) {
+          await openAppSettings();
+        }
+      }
+    }
+
     return status.isGranted;
   }
 
-  /// 저장소 권한 요청 (Android 13 미만)
-  Future<bool> _requestStoragePermission() async {
+  /// 저장소 권한 요청
+  Future<bool> _requestStoragePermission(BuildContext? context) async {
+    Permission permission;
+
     if (Platform.isAndroid) {
       final androidInfo = await _getAndroidVersion();
       if (androidInfo >= 33) {
         // Android 13+ (API 33+): READ_MEDIA_IMAGES 사용
-        final status = await Permission.photos.request();
-        return status.isGranted;
+        permission = Permission.photos;
       } else {
         // Android 12 이하: READ_EXTERNAL_STORAGE 사용
-        final status = await Permission.storage.request();
-        return status.isGranted;
+        permission = Permission.storage;
+      }
+    } else {
+      // iOS
+      permission = Permission.photos;
+    }
+
+    var status = await permission.status;
+
+    // 권한이 영구적으로 거부되었거나 거부된 경우
+    if (status.isPermanentlyDenied || status.isDenied) {
+      if (context != null) {
+        // 설정 안내 다이얼로그 표시
+        final shouldOpenSettings = await _showPermissionDialog(
+          context,
+          '갤러리',
+          '티켓 사진을 선택하려면 갤러리 접근 권한이 필요합니다.\n설정에서 권한을 허용해주세요.',
+        );
+
+        if (shouldOpenSettings) {
+          await openAppSettings();
+        }
+      }
+      return false;
+    }
+
+    // 권한이 아직 요청되지 않은 경우
+    if (!status.isGranted) {
+      status = await permission.request();
+
+      // 거부된 경우 다이얼로그 표시
+      if (!status.isGranted && context != null) {
+        final shouldOpenSettings = await _showPermissionDialog(
+          context,
+          '갤러리',
+          '티켓 사진을 선택하려면 갤러리 접근 권한이 필요합니다.\n설정에서 권한을 허용해주세요.',
+        );
+
+        if (shouldOpenSettings) {
+          await openAppSettings();
+        }
       }
     }
-    return true; // iOS는 자동 처리
+
+    return status.isGranted;
+  }
+
+  /// 권한 안내 다이얼로그 표시
+  Future<bool> _showPermissionDialog(
+    BuildContext context,
+    String permissionName,
+    String message,
+  ) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('$permissionName 권한 필요'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('설정으로 이동'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
   }
 
   /// Android 버전 확인
@@ -40,14 +148,42 @@ class ImageService {
     return 0;
   }
 
+  /// 파일 크기 검증
+  ///
+  /// [file] 검증할 파일
+  ///
+  /// Returns:
+  ///   파일 크기가 제한 이내면 true
+  ///
+  /// Throws:
+  ///   파일 크기가 제한을 초과하면 Exception
+  Future<bool> _validateFileSize(File file) async {
+    try {
+      final fileSize = await file.length();
+      if (fileSize > maxFileSizeInBytes) {
+        throw Exception(
+          '이미지 크기가 너무 큽니다.\n10MB 이하의 이미지를 선택해주세요.\n(현재: ${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB)',
+        );
+      }
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// 카메라로 이미지 촬영
+  ///
+  /// [context] BuildContext (권한 다이얼로그 표시용)
   ///
   /// Returns:
   ///   선택된 이미지 파일, 취소 시 null
-  Future<File?> pickFromCamera() async {
+  ///
+  /// Throws:
+  ///   파일 크기가 제한을 초과하면 Exception
+  Future<File?> pickFromCamera({BuildContext? context}) async {
     try {
       // 권한 요청
-      final hasPermission = await _requestCameraPermission();
+      final hasPermission = await _requestCameraPermission(context);
       if (!hasPermission) {
         debugPrint('카메라 권한이 거부되었습니다');
         return null;
@@ -62,21 +198,31 @@ class ImageService {
 
       if (image == null) return null;
 
-      return File(image.path);
+      final File imageFile = File(image.path);
+
+      // 파일 크기 검증
+      await _validateFileSize(imageFile);
+
+      return imageFile;
     } catch (e) {
       debugPrint('카메라 이미지 선택 오류: $e');
-      return null;
+      rethrow;
     }
   }
 
   /// 갤러리에서 이미지 선택
   ///
+  /// [context] BuildContext (권한 다이얼로그 표시용)
+  ///
   /// Returns:
   ///   선택된 이미지 파일, 취소 시 null
-  Future<File?> pickFromGallery() async {
+  ///
+  /// Throws:
+  ///   파일 크기가 제한을 초과하면 Exception
+  Future<File?> pickFromGallery({BuildContext? context}) async {
     try {
       // 권한 요청
-      final hasPermission = await _requestStoragePermission();
+      final hasPermission = await _requestStoragePermission(context);
       if (!hasPermission) {
         debugPrint('저장소 권한이 거부되었습니다');
         return null;
@@ -91,10 +237,15 @@ class ImageService {
 
       if (image == null) return null;
 
-      return File(image.path);
+      final File imageFile = File(image.path);
+
+      // 파일 크기 검증
+      await _validateFileSize(imageFile);
+
+      return imageFile;
     } catch (e) {
       debugPrint('갤러리 이미지 선택 오류: $e');
-      return null;
+      rethrow;
     }
   }
 
@@ -154,18 +305,18 @@ class ImageService {
   Future<File?> showImageSourceDialog(BuildContext context) async {
     final ImageSource? source = await showDialog<ImageSource>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('이미지 선택'),
           content: const Text('티켓 이미지를 어떻게 추가하시겠습니까?'),
           actions: [
             TextButton.icon(
-              onPressed: () => Navigator.pop(context, ImageSource.camera),
+              onPressed: () => Navigator.pop(dialogContext, ImageSource.camera),
               icon: const Icon(Icons.camera_alt),
               label: const Text('카메라로 촬영'),
             ),
             TextButton.icon(
-              onPressed: () => Navigator.pop(context, ImageSource.gallery),
+              onPressed: () => Navigator.pop(dialogContext, ImageSource.gallery),
               icon: const Icon(Icons.photo_library),
               label: const Text('갤러리에서 선택'),
             ),
@@ -176,12 +327,12 @@ class ImageService {
 
     if (source == null) return null;
 
-    // 선택된 소스에 따라 이미지 가져오기
+    // 선택된 소스에 따라 이미지 가져오기 (context 전달)
     File? imageFile;
     if (source == ImageSource.camera) {
-      imageFile = await pickFromCamera();
+      imageFile = await pickFromCamera(context: context);
     } else {
-      imageFile = await pickFromGallery();
+      imageFile = await pickFromGallery(context: context);
     }
 
     return imageFile;
@@ -213,14 +364,21 @@ class ImageService {
 
   /// 다중 이미지 선택 (갤러리)
   ///
+  /// [context] BuildContext (권한 다이얼로그 표시용)
   /// [maxImages] 최대 선택 가능 개수 (기본값: 10)
   ///
   /// Returns:
   ///   선택된 이미지 파일 리스트
-  Future<List<File>> pickMultipleImages({int maxImages = 10}) async {
+  ///
+  /// Throws:
+  ///   파일 크기가 제한을 초과하면 Exception
+  Future<List<File>> pickMultipleImages({
+    BuildContext? context,
+    int maxImages = 10,
+  }) async {
     try {
       // 권한 요청
-      final hasPermission = await _requestStoragePermission();
+      final hasPermission = await _requestStoragePermission(context);
       if (!hasPermission) {
         debugPrint('저장소 권한이 거부되었습니다');
         return [];
@@ -237,11 +395,27 @@ class ImageService {
       // 최대 개수 제한
       final List<XFile> limitedImages = images.take(maxImages).toList();
 
-      // XFile을 File로 변환
-      return limitedImages.map((xFile) => File(xFile.path)).toList();
+      // XFile을 File로 변환 및 크기 검증
+      final List<File> validatedFiles = [];
+      for (final xFile in limitedImages) {
+        final file = File(xFile.path);
+        try {
+          await _validateFileSize(file);
+          validatedFiles.add(file);
+        } catch (e) {
+          // 크기 초과 파일은 건너뛰고 경고 표시
+          debugPrint('이미지 크기 초과로 건너뜀: ${xFile.name}');
+          // 첫 번째 크기 초과 파일에서 예외 발생
+          if (validatedFiles.isEmpty) {
+            rethrow;
+          }
+        }
+      }
+
+      return validatedFiles;
     } catch (e) {
       debugPrint('다중 이미지 선택 오류: $e');
-      return [];
+      rethrow;
     }
   }
 }

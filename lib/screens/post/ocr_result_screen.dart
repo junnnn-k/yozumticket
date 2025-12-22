@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/game_info.dart';
 import '../../core/constants/baseball_data.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/common/image_viewer.dart';
 
 /// OCR 결과 확인 및 수정 화면
 class OcrResultScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class OcrResultScreen extends StatefulWidget {
 
 class _OcrResultScreenState extends State<OcrResultScreen> {
   late TextEditingController _dateController;
+  late TextEditingController _seatGradeController;
   late TextEditingController _seatController;
   late TextEditingController _priceController;
   late TextEditingController _customHomeTeamController;
@@ -43,6 +45,9 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
     // 컨트롤러 초기화
     _dateController = TextEditingController(
       text: widget.gameInfo.date?.toString().split(' ')[0] ?? '',
+    );
+    _seatGradeController = TextEditingController(
+      text: widget.gameInfo.seatGrade ?? '',
     );
     _seatController = TextEditingController(
       text: widget.gameInfo.seat ?? '',
@@ -82,6 +87,7 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
   @override
   void dispose() {
     _dateController.dispose();
+    _seatGradeController.dispose();
     _seatController.dispose();
     _priceController.dispose();
     _customHomeTeamController.dispose();
@@ -139,6 +145,9 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
       stadium: _selectedStadium == customOption
           ? _customStadiumController.text.trim()
           : _selectedStadium,
+      seatGrade: _seatGradeController.text.trim().isEmpty
+          ? null
+          : _seatGradeController.text.trim(),
       seat: _seatController.text.trim().isEmpty
           ? null
           : _seatController.text.trim(),
@@ -187,23 +196,58 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
 
   /// 티켓 이미지 미리보기
   Widget _buildTicketPreview(ColorScheme colorScheme) {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.3),
-          width: 1,
+    return GestureDetector(
+      onTap: () {
+        // 티켓 이미지 확대 뷰어 열기
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ImageViewer.file(
+              imageFiles: [widget.ticketImage],
+              initialIndex: 0,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.file(
-          widget.ticketImage,
-          fit: BoxFit.contain,
+        child: Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                widget.ticketImage,
+                fit: BoxFit.contain,
+              ),
+            ),
+            // 확대 아이콘 힌트
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.zoom_in,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -332,11 +376,19 @@ class _OcrResultScreenState extends State<OcrResultScreen> {
           _buildStadiumDropdown(colorScheme),
           const SizedBox(height: 16),
 
-          // 좌석
+          // 좌석 등급
           _buildTextField(
-            label: '좌석',
+            label: '좌석 등급',
+            controller: _seatGradeController,
+            hint: '예: 블루석, 프리미엄석',
+          ),
+          const SizedBox(height: 16),
+
+          // 좌석 번호
+          _buildTextField(
+            label: '좌석 번호',
             controller: _seatController,
-            hint: '예: 1루 블루존 203-5',
+            hint: '예: 114블럭 24열 14번',
           ),
           const SizedBox(height: 16),
 

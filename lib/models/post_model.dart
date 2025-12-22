@@ -1,17 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'game_info.dart';
+import '../core/constants/moods.dart';
 
 /// 게시글 데이터 모델
 class Post {
   final String id;
   final String userId;
   final String ticketImageUrl;
+  final String? thumbnailUrl; // 썸네일 URL (null이면 ticketImageUrl 사용)
   final List<String> additionalPhotoUrls;
   final GameInfo gameInfo;
   final String title;
   final String content;
   final List<String> tags;
-  final double rating;
+  final String mood; // 'excited', 'happy', 'normal', 'sad', 'angry'
   final String privacy; // 'private', 'friends', 'public'
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -20,12 +22,13 @@ class Post {
     required this.id,
     required this.userId,
     required this.ticketImageUrl,
+    this.thumbnailUrl,
     this.additionalPhotoUrls = const [],
     required this.gameInfo,
     required this.title,
     this.content = '',
     this.tags = const [],
-    this.rating = 0.0,
+    this.mood = Moods.normal,
     this.privacy = 'private',
     required this.createdAt,
     required this.updatedAt,
@@ -37,6 +40,7 @@ class Post {
       'id': id,
       'userId': userId,
       'ticketImageUrl': ticketImageUrl,
+      'thumbnailUrl': thumbnailUrl,
       'additionalPhotoUrls': additionalPhotoUrls,
       'gameInfo': {
         'date': gameInfo.date != null
@@ -51,7 +55,7 @@ class Post {
       'title': title,
       'content': content,
       'tags': tags,
-      'rating': rating,
+      'mood': mood,
       'privacy': privacy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -62,10 +66,26 @@ class Post {
   factory Post.fromJson(Map<String, dynamic> json) {
     final gameInfoData = json['gameInfo'] as Map<String, dynamic>?;
 
+    // mood 필드 처리 (마이그레이션: rating → mood)
+    String mood = Moods.normal;
+    if (json['mood'] != null) {
+      // 새 데이터: mood 필드 사용
+      mood = json['mood'] as String;
+      // 유효성 검증
+      if (!Moods.isValid(mood)) {
+        mood = Moods.normal;
+      }
+    } else if (json['rating'] != null) {
+      // 기존 데이터: rating을 mood로 변환
+      final rating = (json['rating'] as num).toDouble();
+      mood = Moods.fromRating(rating);
+    }
+
     return Post(
       id: json['id'] as String,
       userId: json['userId'] as String,
       ticketImageUrl: json['ticketImageUrl'] as String,
+      thumbnailUrl: json['thumbnailUrl'] as String?,
       additionalPhotoUrls: (json['additionalPhotoUrls'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -87,7 +107,7 @@ class Post {
               ?.map((e) => e as String)
               .toList() ??
           [],
-      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      mood: mood,
       privacy: json['privacy'] as String? ?? 'private',
       createdAt: (json['createdAt'] as Timestamp).toDate(),
       updatedAt: (json['updatedAt'] as Timestamp).toDate(),
@@ -105,12 +125,13 @@ class Post {
     String? id,
     String? userId,
     String? ticketImageUrl,
+    String? thumbnailUrl,
     List<String>? additionalPhotoUrls,
     GameInfo? gameInfo,
     String? title,
     String? content,
     List<String>? tags,
-    double? rating,
+    String? mood,
     String? privacy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -119,12 +140,13 @@ class Post {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       ticketImageUrl: ticketImageUrl ?? this.ticketImageUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       additionalPhotoUrls: additionalPhotoUrls ?? this.additionalPhotoUrls,
       gameInfo: gameInfo ?? this.gameInfo,
       title: title ?? this.title,
       content: content ?? this.content,
       tags: tags ?? this.tags,
-      rating: rating ?? this.rating,
+      mood: mood ?? this.mood,
       privacy: privacy ?? this.privacy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -143,24 +165,20 @@ class Post {
   /// 프라이버시 레벨
   bool get isPrivate => privacy == 'private';
   bool get isFriendsOnly => privacy == 'friends';
-  bool get isPublic => privacy == 'public';
 }
 
 /// 프라이버시 옵션
 class Privacy {
   static const String private = 'private';
   static const String friends = 'friends';
-  static const String publicPost = 'public';
 
   static const Map<String, String> labels = {
     private: '나만 보기',
     friends: '친구 공개',
-    publicPost: '전체 공개',
   };
 
   static const Map<String, String> descriptions = {
     private: '나만 볼 수 있습니다',
     friends: '친구들에게만 공개됩니다',
-    publicPost: '모든 사용자에게 공개됩니다',
   };
 }

@@ -146,48 +146,100 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                   expandedHeight: 200,
                   pinned: true,
                   flexibleSpace: FlexibleSpaceBar(
-                    background: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            theme.colorScheme.primary,
-                            theme.colorScheme.primaryContainer,
-                          ],
-                        ),
-                      ),
-                      child: SafeArea(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(height: 40),
-                            // 프로필 이미지
-                            CircleAvatar(
-                              radius: 50,
-                              backgroundImage:
-                                  widget.friend.profileImageUrl.isNotEmpty
-                                      ? CachedNetworkImageProvider(
-                                          widget.friend.profileImageUrl,
-                                        )
-                                      : null,
-                              child: widget.friend.profileImageUrl.isEmpty
-                                  ? const Icon(Icons.person, size: 50)
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            // 사용자 이름
-                            Text(
-                              widget.friend.username,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // 커버 이미지 또는 그라데이션
+                        if (widget.friend.coverImageUrl.isNotEmpty)
+                          CachedNetworkImage(
+                            imageUrl: widget.friend.coverImageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    theme.colorScheme.primary,
+                                    theme.colorScheme.primaryContainer,
+                                  ],
+                                ),
                               ),
                             ),
-                          ],
+                            errorWidget: (context, url, error) => Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    theme.colorScheme.primary,
+                                    theme.colorScheme.primaryContainer,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.primaryContainer,
+                                ],
+                              ),
+                            ),
+                          ),
+
+                        // 그라데이션 오버레이
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.3),
+                                Colors.black.withValues(alpha: 0.5),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+
+                        // 프로필 정보
+                        SafeArea(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(height: 40),
+                              // 프로필 이미지
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundImage:
+                                    widget.friend.profileImageUrl.isNotEmpty
+                                        ? CachedNetworkImageProvider(
+                                            widget.friend.profileImageUrl,
+                                          )
+                                        : null,
+                                child: widget.friend.profileImageUrl.isEmpty
+                                    ? const Icon(Icons.person, size: 50)
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                              // 사용자 이름
+                              Text(
+                                widget.friend.username,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   actions: [
@@ -275,7 +327,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '최근 게시글',
+                              '게시글',
                               style: theme.textTheme.titleLarge,
                             ),
                             if (_postCount > 0)

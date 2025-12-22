@@ -9,6 +9,7 @@ class UserModel {
   final String email;
   final String username;
   final String profileImageUrl;
+  final String coverImageUrl; // 프로필 배경 이미지
   final List<String> favoriteTeams; // 응원하는 팀 목록 (복수 선택 가능)
   final String bio; // 자기소개
   final DateTime createdAt;
@@ -37,6 +38,7 @@ class UserModel {
     required this.email,
     required this.username,
     required this.profileImageUrl,
+    this.coverImageUrl = '',
     required this.favoriteTeams,
     required this.bio,
     required this.createdAt,
@@ -66,6 +68,7 @@ class UserModel {
       'email': email,
       'username': username,
       'profileImageUrl': profileImageUrl,
+      'coverImageUrl': coverImageUrl,
       'favoriteTeams': favoriteTeams,
       'bio': bio,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -102,6 +105,7 @@ class UserModel {
       email: json['email'] as String,
       username: json['username'] as String,
       profileImageUrl: json['profileImageUrl'] as String? ?? '',
+      coverImageUrl: json['coverImageUrl'] as String? ?? '',
       favoriteTeams: List<String>.from(json['favoriteTeams'] as List? ?? []),
       bio: json['bio'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp).toDate(),
@@ -142,6 +146,7 @@ class UserModel {
     String? email,
     String? username,
     String? profileImageUrl,
+    String? coverImageUrl,
     List<String>? favoriteTeams,
     String? bio,
     DateTime? createdAt,
@@ -165,6 +170,7 @@ class UserModel {
       email: email ?? this.email,
       username: username ?? this.username,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       favoriteTeams: favoriteTeams ?? this.favoriteTeams,
       bio: bio ?? this.bio,
       createdAt: createdAt ?? this.createdAt,

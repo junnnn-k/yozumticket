@@ -370,7 +370,10 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       itemCount: _filteredPosts.length,
       itemBuilder: (context, index) {
         final post = _filteredPosts[index];
-        return _PostCard(post: post);
+        return _PostCard(
+          post: post,
+          onPostChanged: _loadPosts,
+        );
       },
     );
   }
@@ -383,7 +386,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       separatorBuilder: (context, index) => const SizedBox(height: AppSizes.md),
       itemBuilder: (context, index) {
         final post = _filteredPosts[index];
-        return _PostCard(post: post, isListView: true);
+        return _PostCard(
+          post: post,
+          isListView: true,
+          onPostChanged: _loadPosts,
+        );
       },
     );
   }
@@ -449,7 +456,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       itemCount: posts.length,
       separatorBuilder: (context, index) => const SizedBox(height: AppSizes.md),
       itemBuilder: (context, index) {
-        return _PostCard(post: posts[index], isListView: true);
+        return _PostCard(
+          post: posts[index],
+          isListView: true,
+          onPostChanged: _loadPosts,
+        );
       },
     );
   }
@@ -499,7 +510,13 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                     Text(post.rating.toStringAsFixed(1)),
                   ],
                 ),
-                onTap: () => context.push('/post-detail/${post.id}'),
+                onTap: () async {
+                  final result = await context.push('/post-detail/${post.id}');
+                  // 수정/삭제 시 새로고침
+                  if (result == true && context.mounted) {
+                    _loadPosts();
+                  }
+                },
               );
             }).toList(),
           ),
@@ -513,10 +530,12 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 class _PostCard extends StatelessWidget {
   final Post post;
   final bool isListView;
+  final VoidCallback? onPostChanged;
 
   const _PostCard({
     required this.post,
     this.isListView = false,
+    this.onPostChanged,
   });
 
   @override
@@ -524,7 +543,13 @@ class _PostCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('/post-detail/${post.id}'),
+        onTap: () async {
+          final result = await context.push('/post-detail/${post.id}');
+          // 수정/삭제 시 새로고침
+          if (result == true && context.mounted) {
+            onPostChanged?.call();
+          }
+        },
         child: isListView ? _buildListLayout() : _buildGridLayout(),
       ),
     );

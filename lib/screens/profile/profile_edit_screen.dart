@@ -36,6 +36,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   // 상태 변수
   File? _selectedImage;
   String? _currentImageUrl;
+  File? _selectedCoverImage;
+  String? _currentCoverUrl;
   List<String> _selectedTeams = [];
   bool _isLoading = false;
   bool _hasChanges = false;
@@ -65,6 +67,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         _usernameController.text = user.username;
         _bioController.text = user.bio;
         _currentImageUrl = user.profileImageUrl;
+        _currentCoverUrl = user.coverImageUrl;
         _selectedTeams = List.from(user.favoriteTeams);
       });
     }
@@ -72,12 +75,47 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   /// 프로필 이미지 선택
   Future<void> _pickImage() async {
-    final image = await _imageService.pickAndCropImage(context);
-    if (image != null) {
-      setState(() {
-        _selectedImage = image;
-        _hasChanges = true;
-      });
+    try {
+      final image = await _imageService.pickAndCropImage(context);
+      if (image != null) {
+        setState(() {
+          _selectedImage = image;
+          _hasChanges = true;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  /// 커버 이미지 선택
+  Future<void> _pickCoverImage() async {
+    try {
+      final image = await _imageService.pickAndCropImage(context);
+      if (image != null) {
+        setState(() {
+          _selectedCoverImage = image;
+          _hasChanges = true;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -125,7 +163,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         );
       }
 
-      // 2. Firestore 업데이트
+      // 2. 커버 이미지 업로드 (변경된 경우)
+      String? newCoverUrl;
+      if (_selectedCoverImage != null) {
+        newCoverUrl = await _storageService.uploadCoverImage(
+          userId: userId,
+          imageFile: _selectedCoverImage!,
+        );
+      }
+
+      // 3. Firestore 업데이트
       final updates = <String, dynamic>{};
 
       if (_usernameController.text != authProvider.userModel?.username) {
@@ -138,6 +185,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
       if (newImageUrl != null) {
         updates['profileImageUrl'] = newImageUrl;
+      }
+
+      if (newCoverUrl != null) {
+        updates['coverImageUrl'] = newCoverUrl;
       }
 
       if (_selectedTeams.toString() !=
@@ -216,6 +267,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSizes.lg),
           children: [
+            // 커버 이미지
+            _buildCoverImage(theme),
+            const SizedBox(height: AppSizes.lg),
+
             // 프로필 이미지
             _buildProfileImage(theme),
             const SizedBox(height: AppSizes.xxl),
@@ -250,6 +305,69 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// 커버 이미지 위젯
+  Widget _buildCoverImage(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '커버 이미지 (선택사항)',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _pickCoverImage,
+          child: Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              ),
+              image: _selectedCoverImage != null
+                  ? DecorationImage(
+                      image: FileImage(_selectedCoverImage!),
+                      fit: BoxFit.cover,
+                    )
+                  : (_currentCoverUrl?.isNotEmpty == true
+                      ? DecorationImage(
+                          image: NetworkImage(_currentCoverUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null),
+            ),
+            child: (_selectedCoverImage == null && _currentCoverUrl?.isEmpty != false)
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate,
+                          size: 48,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '커버 이미지 추가',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : null,
+          ),
+        ),
+      ],
     );
   }
 

@@ -64,10 +64,8 @@ class ThemePreviewScreen extends StatelessWidget {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: 프리미엄 구독 화면으로 이동
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('프리미엄 구독 화면 (준비 중)')),
-              );
+              // 프리미엄 구독 화면으로 이동
+              context.push('/premium-subscription');
             },
             child: const Text('프리미엄 보기'),
           ),

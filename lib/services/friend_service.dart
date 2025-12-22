@@ -259,6 +259,63 @@ class FriendService {
     return query.docs.length;
   }
 
+  /// 친구 요청 이력 조회 (내가 보낸 요청)
+  ///
+  /// [userId] 사용자 ID
+  ///
+  /// Returns: 친구 요청 이력 목록
+  /// - pending 상태: 기간 제한 없음
+  /// - 그 외 상태 (accepted/rejected): 최근 2주 이내 데이터만
+  Future<List<Friendship>> getRequestHistory(String userId) async {
+    // 2주 전 날짜 계산
+    final twoWeeksAgo = DateTime.now().subtract(const Duration(days: 14));
+
+    // pending 요청 (기간 제한 없음)
+    final pendingQuery = await _firestore
+        .collection('friendships')
+        .where('requesterId', isEqualTo: userId)
+        .where('status', isEqualTo: FriendshipStatus.pending)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    // accepted 요청 (최근 2주)
+    final acceptedQuery = await _firestore
+        .collection('friendships')
+        .where('requesterId', isEqualTo: userId)
+        .where('status', isEqualTo: FriendshipStatus.accepted)
+        .where('updatedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(twoWeeksAgo))
+        .orderBy('updatedAt', descending: true)
+        .get();
+
+    // rejected 요청 (최근 2주)
+    final rejectedQuery = await _firestore
+        .collection('friendships')
+        .where('requesterId', isEqualTo: userId)
+        .where('status', isEqualTo: FriendshipStatus.rejected)
+        .where('updatedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(twoWeeksAgo))
+        .orderBy('updatedAt', descending: true)
+        .get();
+
+    // 모든 결과 합치기
+    final allDocs = <QueryDocumentSnapshot>[
+      ...pendingQuery.docs,
+      ...acceptedQuery.docs,
+      ...rejectedQuery.docs,
+    ];
+
+    // Friendship 객체로 변환
+    final friendships = allDocs.map((doc) => Friendship.fromFirestore(doc)).toList();
+
+    // 시간순으로 정렬 (최신순)
+    friendships.sort((a, b) {
+      final aDate = a.updatedAt ?? a.createdAt;
+      final bDate = b.updatedAt ?? b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+
+    return friendships;
+  }
+
   /// 친구 목록 실시간 스트림
   ///
   /// [userId] 사용자 ID

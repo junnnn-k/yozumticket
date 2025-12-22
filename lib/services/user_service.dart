@@ -61,7 +61,7 @@ class UserService {
   /// 사용자 삭제
   ///
   /// 회원 탈퇴 시 모든 사용자 데이터 삭제
-  /// - Firestore: users, posts, friendships
+  /// - Firestore: users, posts, friendships, sharedArchives
   /// - Firebase Storage: 모든 사용자 파일
   Future<void> deleteUser(String uid) async {
     try {
@@ -99,10 +99,56 @@ class UserService {
         await doc.reference.delete();
       }
 
-      // 3. Firebase Storage의 모든 사용자 파일 삭제
+      // 3. 생성자인 공유 아카이브 처리
+      final createdArchives = await _firestore
+          .collection('sharedArchives')
+          .where('createdBy', isEqualTo: uid)
+          .get();
+
+      print('[UserService] Found ${createdArchives.docs.length} shared archives created by user');
+
+      for (final doc in createdArchives.docs) {
+        final data = doc.data();
+        final members = List<String>.from(data['members'] ?? []);
+
+        // 생성자를 멤버 목록에서 제거
+        members.remove(uid);
+
+        if (members.isEmpty) {
+          // 멤버가 없으면 아카이브 삭제
+          await doc.reference.delete();
+          print('[UserService] Deleted empty shared archive: ${doc.id}');
+        } else {
+          // 첫 번째 멤버에게 소유권 이전
+          await doc.reference.update({
+            'createdBy': members.first,
+            'members': members,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          print('[UserService] Transferred ownership of archive ${doc.id} to ${members.first}');
+        }
+      }
+
+      // 4. 멤버로 참여한 공유 아카이브에서 제거
+      final memberArchives = await _firestore
+          .collection('sharedArchives')
+          .where('members', arrayContains: uid)
+          .get();
+
+      print('[UserService] Found ${memberArchives.docs.length} shared archives as member');
+
+      for (final doc in memberArchives.docs) {
+        await doc.reference.update({
+          'members': FieldValue.arrayRemove([uid]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        print('[UserService] Removed user from shared archive: ${doc.id}');
+      }
+
+      // 5. Firebase Storage의 모든 사용자 파일 삭제
       await _storageService.deleteUserData(uid);
 
-      // 4. Firestore users 문서 삭제
+      // 6. Firestore users 문서 삭제
       await _usersCollection.doc(uid).delete();
 
       print('[UserService] User and all related data deleted successfully: $uid');

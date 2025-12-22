@@ -14,10 +14,12 @@ import '../../screens/profile/my_posts_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/friends/search_friends_screen.dart';
 import '../../screens/friends/friend_requests_screen.dart';
+import '../../screens/friends/friend_request_history_screen.dart';
 import '../../screens/friends/friend_profile_screen.dart';
 import '../../screens/archive/create_shared_archive_screen.dart';
 import '../../screens/archive/shared_archive_detail_screen.dart';
 import '../../screens/archive/select_posts_screen.dart';
+import '../../screens/archive/edit_shared_archive_screen.dart';
 import '../../screens/subscription/premium_subscription_screen.dart';
 import '../../models/post_model.dart';
 import '../../models/user_model.dart';
@@ -136,6 +138,12 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const FriendRequestsScreen(),
     ),
 
+    // 친구 요청 이력 화면
+    GoRoute(
+      path: '/friend-request-history',
+      builder: (context, state) => const FriendRequestHistoryScreen(),
+    ),
+
     // 친구 프로필 화면
     GoRoute(
       path: '/friend-profile',
@@ -166,6 +174,15 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final archiveId = state.pathParameters['archiveId']!;
         return SelectPostsScreen(archiveId: archiveId);
+      },
+    ),
+
+    // 공유 아카이브 수정 화면
+    GoRoute(
+      path: '/edit-shared-archive',
+      builder: (context, state) {
+        final archive = state.extra as dynamic;
+        return EditSharedArchiveScreen(archive: archive);
       },
     ),
 

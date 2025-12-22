@@ -200,6 +200,188 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
     }
   }
 
+  /// 멤버 관리 바텀시트 표시
+  void _showMemberManagement() {
+    if (_archive == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return Column(
+            children: [
+              // 핸들
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // 헤더
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '멤버 관리',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${_members.length}명',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+
+              // 멤버 목록
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _members.length,
+                  itemBuilder: (context, index) {
+                    final member = _members[index];
+                    final isCreator = _archive!.isCreator(member.uid);
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: member.profileImageUrl.isNotEmpty
+                            ? NetworkImage(member.profileImageUrl)
+                            : null,
+                        child: member.profileImageUrl.isEmpty
+                            ? Text(member.username[0].toUpperCase())
+                            : null,
+                      ),
+                      title: Row(
+                        children: [
+                          Text(member.username),
+                          if (isCreator) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '생성자',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color:
+                                      Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: member.favoriteTeams.isNotEmpty
+                          ? Text('응원팀: ${member.favoriteTeams.join(', ')}')
+                          : null,
+                      trailing: !isCreator
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.person_remove,
+                                color: Colors.red,
+                              ),
+                              onPressed: () => _removeMember(member),
+                            )
+                          : null,
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// 멤버 제거
+  Future<void> _removeMember(UserModel member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('멤버 내보내기'),
+        content: Text('${member.username}님을 아카이브에서 내보내시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('내보내기'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final archivesProvider = context.read<SharedArchivesProvider>();
+      final success = await archivesProvider.removeMember(
+        archiveId: widget.archiveId,
+        userId: member.uid,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${member.username}님을 내보냈습니다')),
+        );
+
+        // 바텀시트 닫기
+        Navigator.of(context).pop();
+
+        // 데이터 새로고침
+        _loadArchiveData();
+      } else {
+        final error = archivesProvider.errorMessage ?? '알 수 없는 오류';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('멤버 제거 실패: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -224,14 +406,47 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'leave') {
+            onSelected: (value) async {
+              if (value == 'edit') {
+                final result = await context.push(
+                  '/edit-shared-archive',
+                  extra: _archive,
+                );
+                // 수정 완료 시 새로고침
+                if (result == true) {
+                  _loadArchiveData();
+                }
+              } else if (value == 'manage_members') {
+                _showMemberManagement();
+              } else if (value == 'leave') {
                 _leaveArchive();
               } else if (value == 'delete') {
                 _deleteArchive();
               }
             },
             itemBuilder: (context) => [
+              if (_isCreator)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 20),
+                      SizedBox(width: 8),
+                      Text('정보 수정'),
+                    ],
+                  ),
+                ),
+              if (_isCreator)
+                const PopupMenuItem(
+                  value: 'manage_members',
+                  child: Row(
+                    children: [
+                      Icon(Icons.people, size: 20),
+                      SizedBox(width: 8),
+                      Text('멤버 관리'),
+                    ],
+                  ),
+                ),
               if (!_isCreator)
                 const PopupMenuItem(
                   value: 'leave',

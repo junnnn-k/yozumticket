@@ -31,15 +31,28 @@ class _TicketUploadScreenState extends State<TicketUploadScreen> {
   Future<void> _pickImage() async {
     setState(() => _isLoading = true);
 
-    final File? imageFile = await _imageService.pickAndCropImage(
-      context,
-      showCrop: true,
-    );
+    try {
+      final File? imageFile = await _imageService.pickAndCropImage(
+        context,
+        showCrop: true,
+      );
 
-    setState(() {
-      _ticketImage = imageFile;
-      _isLoading = false;
-    });
+      setState(() {
+        _ticketImage = imageFile;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   /// 이미지 재선택

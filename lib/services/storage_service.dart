@@ -108,8 +108,9 @@ class StorageService {
         // 1. 이미지 압축
         final compressedFile = await compressImage(imageFile);
 
-        // 2. Storage 경로 설정
-        final String fileName = 'photo_${i + 1}.jpg';
+        // 2. Storage 경로 설정 (타임스탬프로 고유한 파일명 생성)
+        final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        final String fileName = 'photo_${timestamp}_${i + 1}.jpg';
         final String storagePath = 'users/$userId/posts/$postId/$fileName';
 
         // 3. 업로드
@@ -138,6 +139,51 @@ class StorageService {
       return downloadUrls;
     } catch (e) {
       throw Exception('추가 사진 업로드 실패: $e');
+    }
+  }
+
+  /// 썸네일 이미지 업로드
+  ///
+  /// [userId]: 사용자 ID
+  /// [postId]: 게시글 ID
+  /// [imageFile]: 업로드할 이미지 파일
+  ///
+  /// Returns: 업로드된 썸네일의 다운로드 URL
+  Future<String> uploadThumbnail({
+    required String userId,
+    required String postId,
+    required File imageFile,
+  }) async {
+    try {
+      // 1. 이미지 압축 (썸네일은 작게)
+      final compressedFile = await compressImage(
+        imageFile,
+        quality: 85,
+        maxWidth: 800, // 썸네일은 800px면 충분
+      );
+
+      // 2. Storage 경로 설정
+      final String fileName = 'thumbnail.jpg';
+      final String storagePath = 'users/$userId/posts/$postId/$fileName';
+
+      // 3. 업로드
+      final Reference ref = _storage.ref().child(storagePath);
+      final UploadTask uploadTask = ref.putFile(compressedFile);
+
+      // 4. 완료 대기
+      final TaskSnapshot snapshot = await uploadTask;
+
+      // 5. 다운로드 URL 반환
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // 6. 압축된 임시 파일 삭제
+      if (await compressedFile.exists()) {
+        await compressedFile.delete();
+      }
+
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('썸네일 업로드 실패: $e');
     }
   }
 
@@ -298,6 +344,46 @@ class StorageService {
       return downloadUrl;
     } catch (e) {
       print('[StorageService] Profile image upload failed: $e');
+      rethrow;
+    }
+  }
+
+  /// 커버 이미지 업로드
+  ///
+  /// [userId]: 사용자 ID
+  /// [imageFile]: 업로드할 이미지 파일
+  ///
+  /// Returns: 업로드된 커버 이미지의 다운로드 URL
+  Future<String> uploadCoverImage({
+    required String userId,
+    required File imageFile,
+  }) async {
+    try {
+      // 1. 이미지 압축 (커버 이미지는 크게)
+      final compressedFile = await compressImage(
+        imageFile,
+        quality: 85,
+        maxWidth: 1200, // 커버 이미지는 1200px
+      );
+
+      // 2. Storage 경로 설정
+      final String fileName = 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String storagePath = 'users/$userId/profile/$fileName';
+
+      // 3. 업로드
+      final Reference ref = _storage.ref().child(storagePath);
+      final UploadTask uploadTask = ref.putFile(compressedFile);
+
+      // 4. 업로드 완료 대기
+      final TaskSnapshot snapshot = await uploadTask;
+
+      // 5. 다운로드 URL 반환
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      print('[StorageService] Cover image uploaded: $downloadUrl');
+
+      return downloadUrl;
+    } catch (e) {
+      print('[StorageService] Cover image upload failed: $e');
       rethrow;
     }
   }

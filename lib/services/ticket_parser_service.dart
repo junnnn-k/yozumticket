@@ -13,6 +13,7 @@ class TicketParserService {
     final date = extractDate(fullText);
     final teams = extractTeams(fullText);
     final stadium = extractStadium(fullText, teams);
+    final seatGrade = extractSeatGrade(fullText, stadium);
     final seat = extractSeat(fullText);
     final price = extractPrice(fullText);
 
@@ -24,6 +25,7 @@ class TicketParserService {
       homeTeam: teams?['home'],
       awayTeam: teams?['away'],
       stadium: stadium,
+      seatGrade: seatGrade,
       seat: seat,
       price: price,
       confidence: confidence,
@@ -150,6 +152,55 @@ class TicketParserService {
     // 구장을 못 찾았지만 홈팀을 알면 홈 구장 추론
     if (teams != null && teams['home'] != null) {
       return BaseballData.teamHomeStadium[teams['home']];
+    }
+
+    return null;
+  }
+
+  /// 좌석 등급 추출
+  String? extractSeatGrade(String text, String? stadium) {
+    if (stadium == null) return null;
+
+    // 해당 구장의 좌석 등급 리스트 가져오기
+    final grades = BaseballData.seatGrades[stadium];
+    if (grades == null || grades.isEmpty) return null;
+
+    // 1. 정확한 좌석 등급 매칭 (긴 이름부터 시도)
+    // 예: "프리미엄테이블석"을 "프리미엄석"보다 먼저 체크
+    final sortedGrades = List<String>.from(grades)
+      ..sort((a, b) => b.length.compareTo(a.length));
+
+    for (var grade in sortedGrades) {
+      if (text.contains(grade)) {
+        return grade;
+      }
+    }
+
+    // 2. 별칭을 통한 매칭
+    for (var entry in BaseballData.seatGradeAliases.entries) {
+      if (text.contains(entry.key)) {
+        final fullGrade = entry.value;
+        // 해당 구장에 있는 등급인지 확인
+        if (grades.contains(fullGrade)) {
+          return fullGrade;
+        }
+      }
+    }
+
+    // 3. 부분 매칭 (더 유연한 검색)
+    // 예: 텍스트에 "블루" 포함 → 구장의 좌석 등급 중 "블루"가 들어간 것 찾기
+    for (var grade in grades) {
+      // "블루석", "블루존" 등에서 "블루" 추출
+      final gradeKeywords = [
+        '프리미엄', 'VIP', '블루', '레드', '오렌지', '그린', '네이비',
+        '외야', '테이블', '익사이팅', '스카이박스',
+      ];
+
+      for (var keyword in gradeKeywords) {
+        if (grade.contains(keyword) && text.contains(keyword)) {
+          return grade;
+        }
+      }
     }
 
     return null;

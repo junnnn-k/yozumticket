@@ -26,6 +26,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  int _friendRequestCount = 0; // 친구 요청 개수
 
   // 홈 탭에 접근하기 위한 GlobalKey
   final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
@@ -43,7 +44,13 @@ class _MainScreenState extends State<MainScreen> {
       },
     ),
     const ArchiveScreen(),
-    const _FriendsTab(),
+    _FriendsTab(
+      onRequestCountChanged: (count) {
+        setState(() {
+          _friendRequestCount = count;
+        });
+      },
+    ),
     _ProfileTab(key: _profileTabKey),
   ];
 
@@ -79,23 +86,31 @@ class _MainScreenState extends State<MainScreen> {
           selectedFontSize: 12,
           unselectedFontSize: 11,
           elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
+          items: [
+            const BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home),
               label: '홈',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.book_outlined),
               activeIcon: Icon(Icons.book),
               label: '기록',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline),
-              activeIcon: Icon(Icons.people),
+              icon: Badge(
+                label: Text('$_friendRequestCount'),
+                isLabelVisible: _friendRequestCount > 0,
+                child: const Icon(Icons.people_outline),
+              ),
+              activeIcon: Badge(
+                label: Text('$_friendRequestCount'),
+                isLabelVisible: _friendRequestCount > 0,
+                child: const Icon(Icons.people),
+              ),
               label: '친구',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),
               label: 'MY',
@@ -135,10 +150,42 @@ class _HomeTabState extends State<_HomeTab> {
   bool _isLoading = true;
   String? _error;
 
+  // 통계 정보
+  int _totalCount = 0;
+  int _thisMonthCount = 0;
+
   @override
   void initState() {
     super.initState();
     _loadRecentPosts();
+    _loadStats();
+  }
+
+  /// 통계 정보 불러오기
+  Future<void> _loadStats() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 총 게시글 수
+      final allPosts = await _postService.getMyPosts(user.uid);
+
+      // 이번 달 게시글 수
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final thisMonthPosts = allPosts.where((post) {
+        return post.createdAt.isAfter(startOfMonth);
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _totalCount = allPosts.length;
+        _thisMonthCount = thisMonthPosts.length;
+      });
+    } catch (e) {
+      debugPrint('통계 불러오기 실패: $e');
+    }
   }
 
   /// 최근 게시글 불러오기
@@ -200,12 +247,20 @@ class _HomeTabState extends State<_HomeTab> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadRecentPosts,
+        onRefresh: () async {
+          await Future.wait([
+            _loadRecentPosts(),
+            _loadStats(),
+          ]);
+        },
         child: ListView(
           padding: const EdgeInsets.all(AppSizes.md),
           children: [
-            // 환영 메시지
-            _WelcomeCard(),
+            // 통계 정보
+            _QuickStatsCard(
+              totalCount: _totalCount,
+              thisMonthCount: _thisMonthCount,
+            ),
             const SizedBox(height: AppSizes.lg),
 
             // 빠른 추가 버튼
@@ -291,14 +346,22 @@ class _HomeTabState extends State<_HomeTab> {
   }
 }
 
-/// 환영 카드
-class _WelcomeCard extends StatelessWidget {
+/// 간략한 통계 카드
+class _QuickStatsCard extends StatelessWidget {
+  final int totalCount;
+  final int thisMonthCount;
+
+  const _QuickStatsCard({
+    required this.totalCount,
+    required this.thisMonthCount,
+  });
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(AppSizes.lg),
+      padding: const EdgeInsets.all(AppSizes.md),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -308,27 +371,69 @@ class _WelcomeCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Text(
-            '안녕하세요! 👋',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onPrimary,
-            ),
+          _StatItem(
+            icon: Icons.sports_baseball,
+            label: '총 관람',
+            value: '$totalCount회',
           ),
-          const SizedBox(height: AppSizes.sm),
-          Text(
-            '오늘도 좋은 경기 되세요!',
-            style: TextStyle(
-              fontSize: 14,
-              color: theme.colorScheme.onPrimary.withOpacity(0.9),
-            ),
+          Container(
+            width: 1,
+            height: 40,
+            color: Colors.white.withOpacity(0.3),
+          ),
+          _StatItem(
+            icon: Icons.calendar_month,
+            label: '이번 달',
+            value: '$thisMonthCount회',
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 통계 항목 위젯
+class _StatItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _StatItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: 32,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white70,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -561,7 +666,9 @@ class _TicketCard extends StatelessWidget {
 
 /// 친구 탭
 class _FriendsTab extends StatefulWidget {
-  const _FriendsTab();
+  final Function(int) onRequestCountChanged;
+
+  const _FriendsTab({required this.onRequestCountChanged});
 
   @override
   State<_FriendsTab> createState() => _FriendsTabState();
@@ -618,6 +725,9 @@ class _FriendsTabState extends State<_FriendsTab>
         _pendingRequestCount = results[1] as int;
         _isLoading = false;
       });
+
+      // 친구 요청 개수 변경을 부모 위젯에 알림
+      widget.onRequestCountChanged(_pendingRequestCount);
     } catch (e) {
       if (!mounted) return;
 
@@ -1175,24 +1285,24 @@ class _ProfileTabState extends State<_ProfileTab> {
               context.push('/settings');
             },
           ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.bug_report, color: Colors.orange),
-            title: const Text('Firestore 테스트 (디버그)'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              context.push('/firestore-test');
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.cloud_upload, color: Colors.blue),
-            title: const Text('Storage 테스트 (디버그)'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              context.push('/storage-test');
-            },
-          ),
+          // 프리미엄 구독 버튼 (무료 사용자만)
+          if (user != null && userModel != null && !userModel.isPremium) ...[
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.star, color: Colors.amber),
+              title: const Text(
+                '프리미엄 구독',
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.push('/premium-subscription');
+              },
+            ),
+          ],
           if (user != null) ...[
             const Divider(height: 1),
             ListTile(

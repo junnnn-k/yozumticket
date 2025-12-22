@@ -9,6 +9,7 @@ import '../../services/image_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/post_service.dart';
 import '../../core/constants/baseball_data.dart';
+import '../../core/constants/moods.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 
 /// 게시글 작성 화면
@@ -30,15 +31,15 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final _tagController = TextEditingController();
+  final _titleFieldKey = GlobalKey(); // 제목 필드 스크롤용
 
   final ImageService _imageService = ImageService();
   final StorageService _storageService = StorageService();
   final PostService _postService = PostService();
 
+  File? _selectedThumbnail; // 썸네일 이미지 (null이면 티켓 이미지 사용)
   List<File> _additionalPhotos = [];
-  List<String> _tags = [];
-  double _rating = 3.0;
+  String _selectedMood = Moods.normal; // 기분 이모지
   String _privacy = Privacy.private;
   bool _isLoading = false;
 
@@ -46,7 +47,6 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
-    _tagController.dispose();
     super.dispose();
   }
 
@@ -76,7 +76,7 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
         return;
       }
 
-      final files = await _imageService.pickMultipleImages();
+      final files = await _imageService.pickMultipleImages(context: context);
 
       if (files.isEmpty) return;
 
@@ -114,6 +114,24 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('사진 선택 실패: $e')),
+      );
+    }
+  }
+
+  /// 썸네일 선택
+  Future<void> _pickThumbnail() async {
+    try {
+      final file = await _imageService.showImageSourceDialog(context);
+
+      if (file == null) return;
+
+      setState(() {
+        _selectedThumbnail = file;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('썸네일 선택 실패: $e')),
       );
     }
   }
@@ -197,39 +215,24 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
     });
   }
 
-  /// 태그 추가
-  void _addTag() {
-    final tag = _tagController.text.trim();
-
-    if (tag.isEmpty) return;
-
-    // # 자동 추가
-    final formattedTag = tag.startsWith('#') ? tag : '#$tag';
-
-    // 중복 체크
-    if (_tags.contains(formattedTag)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이미 추가된 태그입니다')),
+  /// 필드로 스크롤
+  void _scrollToField(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.2, // 화면 상단에서 20% 위치
       );
-      return;
     }
-
-    setState(() {
-      _tags.add(formattedTag);
-      _tagController.clear();
-    });
-  }
-
-  /// 태그 삭제
-  void _removeTag(int index) {
-    setState(() {
-      _tags.removeAt(index);
-    });
   }
 
   /// 게시글 작성
   Future<void> _createPost() async {
     if (!_formKey.currentState!.validate()) {
+      // 필수 항목 미입력 시 제목 필드로 스크롤
+      _scrollToField(_titleFieldKey);
       return;
     }
 
@@ -247,52 +250,17 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
     });
 
     try {
-      // 1. Firestore Document ID 먼저 생성 (Storage와 Firestore에서 동일 ID 사용)
-      final postId = FirebaseFirestore.instance.collection('posts').doc().id;
-      debugPrint('📝 생성된 postId: $postId');
-
-      // 2. 티켓 이미지 업로드 (Firestore ID 사용)
-      final ticketImageUrl = await _storageService.uploadTicketImage(
-        imageFile: widget.ticketImage,
-        userId: user.uid,
-        postId: postId,
-      );
-
-      // 3. 추가 사진 업로드 (있는 경우)
-      List<String> additionalPhotoUrls = [];
-      if (_additionalPhotos.isNotEmpty) {
-        additionalPhotoUrls = await _storageService.uploadAdditionalPhotos(
-          imageFiles: _additionalPhotos,
-          userId: user.uid,
-          postId: postId,
-          onProgress: (progress) {
-            // TODO: 진행률 표시 (선택 사항)
-          },
-        );
-      }
-
-      // 4. Post 객체 생성
-      final post = Post(
-        id: postId,
-        userId: user.uid,
-        ticketImageUrl: ticketImageUrl,
-        additionalPhotoUrls: additionalPhotoUrls,
-        gameInfo: widget.gameInfo,
-        title: _titleController.text.trim(),
-        content: _contentController.text.trim(),
-        tags: _tags,
-        rating: _rating,
-        privacy: _privacy,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // 5. Firestore에 저장
-      await _postService.createPost(post);
+      // 30초 타임아웃 설정
+      await Future.any([
+        _uploadAndCreatePost(user),
+        Future.delayed(const Duration(seconds: 30)).then((_) {
+          throw TimeoutException('업로드 시간이 초과되었습니다');
+        }),
+      ]);
 
       if (!mounted) return;
 
-      // 6. 성공 메시지 및 화면 닫기
+      // 성공 메시지 및 화면 닫기
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('게시글이 작성되었습니다')),
       );
@@ -302,6 +270,15 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
       Navigator.of(context).popUntil((route) {
         return route.settings.name == '/main' || route.isFirst;
       });
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('업로드 시간이 초과되었습니다.\n네트워크 연결을 확인해주세요.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -314,6 +291,63 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
         });
       }
     }
+  }
+
+  /// 업로드 및 게시물 생성 로직
+  Future<void> _uploadAndCreatePost(User user) async {
+    // 1. Firestore Document ID 먼저 생성 (Storage와 Firestore에서 동일 ID 사용)
+    final postId = FirebaseFirestore.instance.collection('posts').doc().id;
+    debugPrint('📝 생성된 postId: $postId');
+
+    // 2. 티켓 이미지 업로드 (Firestore ID 사용)
+    final ticketImageUrl = await _storageService.uploadTicketImage(
+      imageFile: widget.ticketImage,
+      userId: user.uid,
+      postId: postId,
+    );
+
+    // 3. 추가 사진 업로드 (있는 경우)
+    List<String> additionalPhotoUrls = [];
+    if (_additionalPhotos.isNotEmpty) {
+      additionalPhotoUrls = await _storageService.uploadAdditionalPhotos(
+        imageFiles: _additionalPhotos,
+        userId: user.uid,
+        postId: postId,
+        onProgress: (progress) {
+          // TODO: 진행률 표시 (선택 사항)
+        },
+      );
+    }
+
+    // 4. 썸네일 업로드 (선택된 경우)
+    String? thumbnailUrl;
+    if (_selectedThumbnail != null) {
+      thumbnailUrl = await _storageService.uploadThumbnail(
+        userId: user.uid,
+        postId: postId,
+        imageFile: _selectedThumbnail!,
+      );
+    }
+
+    // 5. Post 객체 생성
+    final post = Post(
+      id: postId,
+      userId: user.uid,
+      ticketImageUrl: ticketImageUrl,
+      thumbnailUrl: thumbnailUrl,
+      additionalPhotoUrls: additionalPhotoUrls,
+      gameInfo: widget.gameInfo,
+      title: _titleController.text.trim(),
+      content: _contentController.text.trim(),
+      tags: [], // 태그 기능 제거 - 빈 리스트
+      mood: _selectedMood,
+      privacy: _privacy,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // 5. Firestore에 저장
+    await _postService.createPost(post);
   }
 
   @override
@@ -351,18 +385,18 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
 
                     const SizedBox(height: 16),
 
+                    // 썸네일 선택
+                    _buildThumbnailSelector(colorScheme),
+
+                    const SizedBox(height: 16),
+
                     // 추가 사진
                     _buildAdditionalPhotos(colorScheme),
 
                     const SizedBox(height: 16),
 
-                    // 별점 선택
-                    _buildRatingSelector(colorScheme),
-
-                    const SizedBox(height: 16),
-
-                    // 해시태그
-                    _buildTagInput(colorScheme),
+                    // 기분 선택
+                    _buildMoodSelector(colorScheme),
 
                     const SizedBox(height: 16),
 
@@ -479,6 +513,7 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
   /// 제목 입력 필드
   Widget _buildTitleField() {
     return Padding(
+      key: _titleFieldKey, // 스크롤용 키 추가
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: TextFormField(
         controller: _titleController,
@@ -512,6 +547,98 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
         ),
         maxLines: 5,
         maxLength: 500,
+      ),
+    );
+  }
+
+  /// 썸네일 선택
+  Widget _buildThumbnailSelector(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    '썸네일 선택 (선택사항)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '선택하지 않으면 티켓 사진이 썸네일로 사용됩니다',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_selectedThumbnail != null)
+            Stack(
+              children: [
+                Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: colorScheme.outline.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      _selectedThumbnail!,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedThumbnail = null),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: _pickThumbnail,
+              icon: const Icon(Icons.image),
+              label: const Text('썸네일 선택'),
+            ),
+        ],
       ),
     );
   }
@@ -616,120 +743,74 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
     );
   }
 
-  /// 별점 선택
-  Widget _buildRatingSelector(ColorScheme colorScheme) {
+  /// 기분 이모지 선택
+  Widget _buildMoodSelector(ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '별점',
+            '경기 어떠셨나요?',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Row(
-            children: [
-              Expanded(
-                child: Slider(
-                  value: _rating,
-                  min: 1,
-                  max: 5,
-                  divisions: 8,
-                  label: _rating.toStringAsFixed(1),
-                  onChanged: (value) {
-                    setState(() {
-                      _rating = value;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.star,
-                      color: colorScheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _rating.toStringAsFixed(1),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 해시태그 입력
-  Widget _buildTagInput(ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '해시태그',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _tagController,
-                  decoration: const InputDecoration(
-                    hintText: '태그 입력 후 추가 버튼 클릭',
-                    border: OutlineInputBorder(),
-                    prefixText: '#',
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: Moods.all.map((mood) {
+              final isSelected = _selectedMood == mood;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedMood = mood;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 12,
                   ),
-                  onSubmitted: (_) => _addTag(),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? colorScheme.primaryContainer
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.outline.withValues(alpha: 0.3),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        Moods.getEmoji(mood),
+                        style: TextStyle(
+                          fontSize: isSelected ? 36 : 32,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        Moods.getLabel(mood),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _addTag,
-                child: const Text('추가'),
-              ),
-            ],
+              );
+            }).toList(),
           ),
-          const SizedBox(height: 8),
-          if (_tags.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _tags.asMap().entries.map((entry) {
-                final index = entry.key;
-                final tag = entry.value;
-                return Chip(
-                  label: Text(tag),
-                  deleteIcon: const Icon(Icons.close, size: 16),
-                  onDeleted: () => _removeTag(index),
-                );
-              }).toList(),
-            ),
         ],
       ),
     );

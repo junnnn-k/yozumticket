@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../models/post_model.dart';
 import '../../services/post_service.dart';
 import '../../services/storage_service.dart';
+import '../../widgets/common/image_viewer.dart';
+import '../../core/constants/moods.dart';
 
 /// 게시글 상세 보기 화면
 class PostDetailScreen extends StatefulWidget {
@@ -27,6 +29,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Post? _post;
   bool _isLoading = true;
   String? _error;
+  bool _wasModified = false; // 수정 여부 추적
 
   @override
   void initState() {
@@ -152,19 +155,35 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('게시글'),
-        backgroundColor: colorScheme.surface,
-        actions: _isMyPost
+    return PopScope(
+      canPop: false, // 뒤로가기를 직접 제어
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          // 뒤로가기 버튼이나 제스처로 나갈 때 수정 여부 전달
+          Navigator.pop(context, _wasModified);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('게시글'),
+          backgroundColor: colorScheme.surface,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // 수정되었으면 true 반환
+              Navigator.pop(context, _wasModified);
+            },
+          ),
+          actions: _isMyPost
             ? [
                 // 수정 버튼
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () async {
                     final result = await context.push('/post-edit', extra: _post);
-                    // 수정 완료 시 게시글 새로고침
+                    // 수정 완료 시 게시글 새로고침 및 플래그 설정
                     if (result == true && mounted) {
+                      _wasModified = true;
                       _loadPost();
                     }
                   },
@@ -177,13 +196,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ]
             : null,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorView()
-              : _post == null
-                  ? const Center(child: Text('게시글을 찾을 수 없습니다'))
-                  : _buildPostDetail(colorScheme),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _buildErrorView()
+                : _post == null
+                    ? const Center(child: Text('게시글을 찾을 수 없습니다'))
+                    : _buildPostDetail(colorScheme),
+      ),
     );
   }
 
@@ -259,18 +279,37 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   /// 티켓 이미지
   Widget _buildTicketImage() {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: CachedNetworkImage(
-        imageUrl: _post!.ticketImageUrl,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: Colors.grey[300],
-          child: const Icon(Icons.error, size: 48),
+    return GestureDetector(
+      onTap: () {
+        // 모든 이미지 URL 리스트 (티켓 이미지 + 추가 사진)
+        final allImages = [
+          _post!.ticketImageUrl,
+          ..._post!.additionalPhotoUrls,
+        ];
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ImageViewer(
+              imageUrls: allImages,
+              initialIndex: 0, // 티켓 이미지부터 시작
+            ),
+          ),
+        );
+      },
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: CachedNetworkImage(
+          imageUrl: _post!.ticketImageUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey[300],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey[300],
+            child: const Icon(Icons.error, size: 48),
+          ),
         ),
       ),
     );
@@ -299,14 +338,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(width: 16),
-        Icon(Icons.star, size: 16, color: Colors.amber[700]),
+        Text(
+          Moods.getEmoji(_post!.mood),
+          style: const TextStyle(fontSize: 16),
+        ),
         const SizedBox(width: 4),
         Text(
-          _post!.rating.toStringAsFixed(1),
-          style: TextStyle(
+          Moods.getLabel(_post!.mood),
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Colors.amber[700],
           ),
         ),
         const Spacer(),
@@ -330,10 +371,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       case Privacy.friends:
         icon = Icons.people;
         color = Colors.blue;
-        break;
-      case Privacy.publicPost:
-        icon = Icons.public;
-        color = Colors.green;
         break;
       default:
         icon = Icons.lock;
@@ -393,8 +430,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           _buildInfoRow('날짜', _post!.gameInfo.date?.toString().split(' ')[0] ?? '-'),
           _buildInfoRow('경기', '${_post!.gameInfo.homeTeam ?? '-'} vs ${_post!.gameInfo.awayTeam ?? '-'}'),
           _buildInfoRow('구장', _post!.gameInfo.stadium ?? '-'),
-          if (_post!.gameInfo.seat != null)
-            _buildInfoRow('좌석', _post!.gameInfo.seat!),
+          if (_post!.gameInfo.seatGrade != null || _post!.gameInfo.seat != null)
+            _buildInfoRow(
+              '좌석',
+              '${_post!.gameInfo.seatGrade ?? ''} ${_post!.gameInfo.seat ?? ''}'.trim(),
+            ),
           if (_post!.gameInfo.price != null)
             _buildInfoRow('가격', '${NumberFormat('#,###').format(_post!.gameInfo.price)}원'),
         ],
@@ -478,7 +518,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             final url = _post!.additionalPhotoUrls[index];
             return GestureDetector(
               onTap: () {
-                // TODO: 이미지 전체 화면 뷰어 (선택 사항)
+                // 모든 이미지 URL 리스트 (티켓 이미지 + 추가 사진)
+                final allImages = [
+                  _post!.ticketImageUrl,
+                  ..._post!.additionalPhotoUrls,
+                ];
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ImageViewer(
+                      imageUrls: allImages,
+                      initialIndex: index + 1, // 클릭한 추가 사진부터 시작 (티켓 이미지 다음)
+                    ),
+                  ),
+                );
               },
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),

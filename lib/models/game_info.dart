@@ -4,7 +4,8 @@ class GameInfo {
   final String? homeTeam; // 홈 팀
   final String? awayTeam; // 원정 팀
   final String? stadium; // 구장명
-  final String? seat; // 좌석 정보
+  final String? seatGrade; // 좌석 등급 (예: 블루석, 프리미엄석)
+  final String? seat; // 좌석 번호 (예: 114블럭 24열 14번)
   final int? price; // 가격
   final double confidence; // 전체 신뢰도 (0.0 ~ 1.0)
 
@@ -13,6 +14,7 @@ class GameInfo {
     this.homeTeam,
     this.awayTeam,
     this.stadium,
+    this.seatGrade,
     this.seat,
     this.price,
     this.confidence = 0.0,
@@ -35,6 +37,7 @@ class GameInfo {
     String? homeTeam,
     String? awayTeam,
     String? stadium,
+    String? seatGrade,
     String? seat,
     int? price,
     double? confidence,
@@ -44,6 +47,7 @@ class GameInfo {
       homeTeam: homeTeam ?? this.homeTeam,
       awayTeam: awayTeam ?? this.awayTeam,
       stadium: stadium ?? this.stadium,
+      seatGrade: seatGrade ?? this.seatGrade,
       seat: seat ?? this.seat,
       price: price ?? this.price,
       confidence: confidence ?? this.confidence,
@@ -57,6 +61,7 @@ class GameInfo {
       'homeTeam': homeTeam,
       'awayTeam': awayTeam,
       'stadium': stadium,
+      'seatGrade': seatGrade,
       'seat': seat,
       'price': price,
       'confidence': confidence,
@@ -70,6 +75,7 @@ class GameInfo {
       homeTeam: json['homeTeam'],
       awayTeam: json['awayTeam'],
       stadium: json['stadium'],
+      seatGrade: json['seatGrade'],
       seat: json['seat'],
       price: json['price'],
       confidence: json['confidence'] ?? 0.0,

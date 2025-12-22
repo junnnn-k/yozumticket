@@ -6,6 +6,7 @@ import '../../models/post_model.dart';
 import '../../services/image_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/post_service.dart';
+import '../../core/constants/moods.dart';
 
 /// 게시글 수정 화면
 class PostEditScreen extends StatefulWidget {
@@ -24,11 +25,16 @@ class _PostEditScreenState extends State<PostEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _contentController;
-  final _tagController = TextEditingController();
+  final _titleFieldKey = GlobalKey(); // 제목 필드 스크롤용
 
   final ImageService _imageService = ImageService();
   final StorageService _storageService = StorageService();
   final PostService _postService = PostService();
+
+  // 썸네일
+  String? _existingThumbnailUrl; // 기존 썸네일 URL
+  File? _newThumbnail; // 새로 선택한 썸네일
+  bool _thumbnailDeleted = false; // 썸네일 삭제 여부
 
   // 기존 추가 사진 URL (수정하지 않음)
   List<String> _existingPhotoUrls = [];
@@ -38,7 +44,7 @@ class _PostEditScreenState extends State<PostEditScreen> {
   List<String> _deletedPhotoUrls = [];
 
   late List<String> _tags;
-  late double _rating;
+  late String _mood; // 기분 이모지
   late String _privacy;
   bool _isLoading = false;
 
@@ -49,9 +55,9 @@ class _PostEditScreenState extends State<PostEditScreen> {
     // 기존 데이터 불러오기
     _titleController = TextEditingController(text: widget.post.title);
     _contentController = TextEditingController(text: widget.post.content);
-    _tags = List.from(widget.post.tags);
-    _rating = widget.post.rating;
+    _mood = widget.post.mood;
     _privacy = widget.post.privacy;
+    _existingThumbnailUrl = widget.post.thumbnailUrl;
     _existingPhotoUrls = List.from(widget.post.additionalPhotoUrls);
   }
 
@@ -59,26 +65,63 @@ class _PostEditScreenState extends State<PostEditScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
-    _tagController.dispose();
     super.dispose();
   }
 
   /// 새 추가 사진 선택
   Future<void> _pickAdditionalPhotos() async {
     try {
-      final files = await _imageService.pickMultipleImages();
+      // 현재 사용자 정보 가져오기
+      final authProvider = context.read<app_auth.AuthProvider>();
+      final currentUser = authProvider.currentUser;
+
+      if (currentUser == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사용자 정보를 불러올 수 없습니다')),
+        );
+        return;
+      }
+
+      // 사용자별 사진 제한 (무료: 3장, 프리미엄: 20장)
+      final maxPhotos = currentUser.maxPhotosPerPost;
+      final currentPhotoCount = _existingPhotoUrls.length + _newAdditionalPhotos.length;
+
+      // 제한 초과 체크
+      if (currentPhotoCount >= maxPhotos) {
+        if (!mounted) return;
+        _showPhotoLimitDialog(currentUser.isPremium, maxPhotos);
+        return;
+      }
+
+      final files = await _imageService.pickMultipleImages(context: context);
 
       if (files.isEmpty) return;
 
-      // 최대 10장 제한
-      final totalPhotos = _existingPhotoUrls.length + _newAdditionalPhotos.length + files.length;
-      if (totalPhotos > 10) {
+      // 추가 후 총 개수 체크
+      final totalPhotos = currentPhotoCount + files.length;
+      if (totalPhotos > maxPhotos) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('추가 사진은 최대 10장까지 가능합니다 (현재: ${_existingPhotoUrls.length + _newAdditionalPhotos.length}장)'),
-          ),
-        );
+
+        // 일부만 추가 가능한 경우
+        final availableSlots = maxPhotos - currentPhotoCount;
+        if (availableSlots > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$availableSlots장만 추가할 수 있습니다 (최대: $maxPhotos장)'),
+              action: SnackBarAction(
+                label: '일부 추가',
+                onPressed: () {
+                  setState(() {
+                    _newAdditionalPhotos.addAll(files.take(availableSlots));
+                  });
+                },
+              ),
+            ),
+          );
+        } else {
+          _showPhotoLimitDialog(currentUser.isPremium, maxPhotos);
+        }
         return;
       }
 
@@ -91,6 +134,33 @@ class _PostEditScreenState extends State<PostEditScreen> {
         SnackBar(content: Text('사진 선택 실패: $e')),
       );
     }
+  }
+
+  /// 썸네일 선택
+  Future<void> _pickThumbnail() async {
+    try {
+      final file = await _imageService.showImageSourceDialog(context);
+
+      if (file == null) return;
+
+      setState(() {
+        _newThumbnail = file;
+        _thumbnailDeleted = false; // 새 썸네일 선택 시 삭제 플래그 해제
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('썸네일 선택 실패: $e')),
+      );
+    }
+  }
+
+  /// 썸네일 삭제
+  void _removeThumbnail() {
+    setState(() {
+      _newThumbnail = null;
+      _thumbnailDeleted = true;
+    });
   }
 
   /// 기존 사진 삭제 (URL)
@@ -109,39 +179,96 @@ class _PostEditScreenState extends State<PostEditScreen> {
     });
   }
 
-  /// 태그 추가
-  void _addTag() {
-    final tag = _tagController.text.trim();
-
-    if (tag.isEmpty) return;
-
-    // # 자동 추가
-    final formattedTag = tag.startsWith('#') ? tag : '#$tag';
-
-    // 중복 체크
-    if (_tags.contains(formattedTag)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이미 추가된 태그입니다')),
-      );
-      return;
-    }
-
-    setState(() {
-      _tags.add(formattedTag);
-      _tagController.clear();
-    });
+  /// 사진 제한 다이얼로그 표시
+  void _showPhotoLimitDialog(bool isPremium, int maxPhotos) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('사진 제한'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isPremium
+                  ? '사진은 최대 $maxPhotos장까지 추가할 수 있습니다.'
+                  : '무료 사용자는 사진을 최대 $maxPhotos장까지 추가할 수 있습니다.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            if (!isPremium) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          '프리미엄 혜택',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '프리미엄 구독 시 최대 20장까지 사진을 추가할 수 있습니다.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+          if (!isPremium)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // TODO: 프리미엄 구독 화면으로 이동
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('프리미엄 구독 화면 (준비 중)')),
+                );
+              },
+              child: const Text('프리미엄 보기'),
+            ),
+        ],
+      ),
+    );
   }
 
-  /// 태그 삭제
-  void _removeTag(int index) {
-    setState(() {
-      _tags.removeAt(index);
-    });
+  /// 필드로 스크롤
+  void _scrollToField(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.2, // 화면 상단에서 20% 위치
+      );
+    }
   }
 
   /// 게시글 수정
   Future<void> _updatePost() async {
     if (!_formKey.currentState!.validate()) {
+      // 필수 항목 미입력 시 제목 필드로 스크롤
+      _scrollToField(_titleFieldKey);
       return;
     }
 
@@ -167,7 +294,17 @@ class _PostEditScreenState extends State<PostEditScreen> {
     });
 
     try {
-      // 1. 삭제된 사진 Storage에서 삭제
+      // 1. 기존 썸네일 삭제 (삭제 플래그가 설정되었거나 새 썸네일로 교체하는 경우)
+      if (_existingThumbnailUrl != null &&
+          (_thumbnailDeleted || _newThumbnail != null)) {
+        try {
+          await _storageService.deleteImage(_existingThumbnailUrl!);
+        } catch (e) {
+          debugPrint('썸네일 삭제 실패: $_existingThumbnailUrl - $e');
+        }
+      }
+
+      // 2. 삭제된 추가 사진 Storage에서 삭제
       for (final url in _deletedPhotoUrls) {
         try {
           await _storageService.deleteImage(url);
@@ -176,7 +313,21 @@ class _PostEditScreenState extends State<PostEditScreen> {
         }
       }
 
-      // 2. 새 추가 사진 업로드
+      // 3. 새 썸네일 업로드
+      String? updatedThumbnailUrl;
+      if (_newThumbnail != null) {
+        updatedThumbnailUrl = await _storageService.uploadThumbnail(
+          userId: user.uid,
+          postId: widget.post.id,
+          imageFile: _newThumbnail!,
+        );
+      } else if (!_thumbnailDeleted && _existingThumbnailUrl != null) {
+        // 기존 썸네일 유지
+        updatedThumbnailUrl = _existingThumbnailUrl;
+      }
+      // _thumbnailDeleted == true 이고 _newThumbnail == null 이면 updatedThumbnailUrl은 null
+
+      // 4. 새 추가 사진 업로드
       List<String> newPhotoUrls = [];
       if (_newAdditionalPhotos.isNotEmpty) {
         newPhotoUrls = await _storageService.uploadAdditionalPhotos(
@@ -189,26 +340,27 @@ class _PostEditScreenState extends State<PostEditScreen> {
         );
       }
 
-      // 3. 최종 additionalPhotoUrls 합치기
+      // 5. 최종 additionalPhotoUrls 합치기
       final updatedPhotoUrls = [..._existingPhotoUrls, ...newPhotoUrls];
 
-      // 4. Post 객체 업데이트
+      // 6. Post 객체 업데이트
       final updatedPost = widget.post.copyWith(
         title: _titleController.text.trim(),
         content: _contentController.text.trim(),
-        tags: _tags,
-        rating: _rating,
+        // tags는 기존 값 유지 (태그 기능 제거)
+        mood: _mood,
         privacy: _privacy,
+        thumbnailUrl: updatedThumbnailUrl,
         additionalPhotoUrls: updatedPhotoUrls,
         updatedAt: DateTime.now(),
       );
 
-      // 5. Firestore에 저장
+      // 7. Firestore에 저장
       await _postService.updatePost(updatedPost);
 
       if (!mounted) return;
 
-      // 6. 성공 메시지 및 화면 닫기
+      // 8. 성공 메시지 및 화면 닫기
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('게시글이 수정되었습니다')),
       );
@@ -259,16 +411,16 @@ class _PostEditScreenState extends State<PostEditScreen> {
                       _buildContentField(),
                       const SizedBox(height: 16),
 
+                      // 썸네일 선택
+                      _buildThumbnailSelector(colorScheme),
+                      const SizedBox(height: 16),
+
                       // 추가 사진
                       _buildAdditionalPhotos(colorScheme),
                       const SizedBox(height: 16),
 
-                      // 별점 선택
-                      _buildRatingSelector(colorScheme),
-                      const SizedBox(height: 16),
-
-                      // 해시태그
-                      _buildTagInput(colorScheme),
+                      // 기분 선택
+                      _buildMoodSelector(colorScheme),
                       const SizedBox(height: 16),
 
                       // 프라이버시 설정
@@ -339,20 +491,23 @@ class _PostEditScreenState extends State<PostEditScreen> {
 
   /// 제목 입력 필드
   Widget _buildTitleField() {
-    return TextFormField(
-      controller: _titleController,
-      decoration: const InputDecoration(
-        labelText: '제목',
-        hintText: '오늘의 경기 제목을 입력하세요',
-        border: OutlineInputBorder(),
+    return Container(
+      key: _titleFieldKey, // 스크롤용 키 추가
+      child: TextFormField(
+        controller: _titleController,
+        decoration: const InputDecoration(
+          labelText: '제목',
+          hintText: '오늘의 경기 제목을 입력하세요',
+          border: OutlineInputBorder(),
+        ),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return '제목을 입력해주세요';
+          }
+          return null;
+        },
+        maxLength: 50,
       ),
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return '제목을 입력해주세요';
-        }
-        return null;
-      },
-      maxLength: 50,
     );
   }
 
@@ -371,9 +526,116 @@ class _PostEditScreenState extends State<PostEditScreen> {
     );
   }
 
+  /// 썸네일 선택
+  Widget _buildThumbnailSelector(ColorScheme colorScheme) {
+    // 표시할 썸네일 결정
+    final bool hasThumbnail = _newThumbnail != null ||
+        (_existingThumbnailUrl != null && !_thumbnailDeleted);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  '썸네일 선택 (선택사항)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '선택하지 않으면 티켓 사진이 썸네일로 사용됩니다',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (hasThumbnail)
+          Stack(
+            children: [
+              Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _newThumbnail != null
+                      ? Image.file(
+                          _newThumbnail!,
+                          fit: BoxFit.cover,
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: _existingThumbnailUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(Icons.error),
+                        ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: _removeThumbnail,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          )
+        else
+          OutlinedButton.icon(
+            onPressed: _pickThumbnail,
+            icon: const Icon(Icons.image),
+            label: const Text('썸네일 선택'),
+          ),
+      ],
+    );
+  }
+
   /// 추가 사진
   Widget _buildAdditionalPhotos(ColorScheme colorScheme) {
     final totalPhotos = _existingPhotoUrls.length + _newAdditionalPhotos.length;
+
+    // 사용자별 사진 제한 가져오기
+    final authProvider = context.read<app_auth.AuthProvider>();
+    final currentUser = authProvider.currentUser;
+    final maxPhotos = currentUser?.maxPhotosPerPost ?? 3;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,14 +644,14 @@ class _PostEditScreenState extends State<PostEditScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              '추가 사진 ($totalPhotos/10)',
+              '추가 사진 ($totalPhotos/$maxPhotos)',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
             TextButton.icon(
-              onPressed: totalPhotos >= 10 ? null : _pickAdditionalPhotos,
+              onPressed: totalPhotos >= maxPhotos ? null : _pickAdditionalPhotos,
               icon: const Icon(Icons.add_photo_alternate),
               label: const Text('사진 추가'),
             ),
@@ -481,115 +743,72 @@ class _PostEditScreenState extends State<PostEditScreen> {
     );
   }
 
-  /// 별점 선택
-  Widget _buildRatingSelector(ColorScheme colorScheme) {
+  /// 기분 이모지 선택
+  Widget _buildMoodSelector(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '별점',
+          '경기 어떠셨나요?',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Row(
-          children: [
-            Expanded(
-              child: Slider(
-                value: _rating,
-                min: 1,
-                max: 5,
-                divisions: 8,
-                label: _rating.toStringAsFixed(1),
-                onChanged: (value) {
-                  setState(() {
-                    _rating = value;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.star,
-                    color: colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _rating.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  /// 해시태그 입력
-  Widget _buildTagInput(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '해시태그',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _tagController,
-                decoration: const InputDecoration(
-                  hintText: '태그 입력 후 추가 버튼 클릭',
-                  border: OutlineInputBorder(),
-                  prefixText: '#',
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: Moods.all.map((mood) {
+            final isSelected = _mood == mood;
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _mood = mood;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
                 ),
-                onSubmitted: (_) => _addTag(),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? colorScheme.primaryContainer
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.outline.withValues(alpha: 0.3),
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      Moods.getEmoji(mood),
+                      style: TextStyle(
+                        fontSize: isSelected ? 36 : 32,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      Moods.getLabel(mood),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: _addTag,
-              child: const Text('추가'),
-            ),
-          ],
+            );
+          }).toList(),
         ),
-        const SizedBox(height: 8),
-        if (_tags.isNotEmpty)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _tags.asMap().entries.map((entry) {
-              final index = entry.key;
-              final tag = entry.value;
-              return Chip(
-                label: Text(tag),
-                deleteIcon: const Icon(Icons.close, size: 16),
-                onDeleted: () => _removeTag(index),
-              );
-            }).toList(),
-          ),
       ],
     );
   }
