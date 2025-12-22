@@ -93,29 +93,8 @@ class PostService {
     }
   }
 
-  /// 전체 게시글 목록 조회 (공개 게시글만)
-  Future<List<Post>> getPublicPosts({
-    int limit = 20,
-    DocumentSnapshot? lastDocument,
-  }) async {
-    try {
-      Query query = _firestore
-          .collection(_collectionName)
-          .where('privacy', isEqualTo: Privacy.publicPost)
-          .orderBy('createdAt', descending: true)
-          .limit(limit);
-
-      if (lastDocument != null) {
-        query = query.startAfterDocument(lastDocument);
-      }
-
-      final snapshot = await query.get();
-
-      return snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
-    } catch (e) {
-      throw Exception('공개 게시글 조회 실패: $e');
-    }
-  }
+  // 전체 공개 기능 제거됨 (2025-12-22)
+  // getPublicPosts() 함수는 더 이상 사용되지 않음
 
   /// 게시글 개수 조회
   Future<int> getPostCount(String userId) async {

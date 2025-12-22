@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/user_model.dart';
 import '../../models/post_model.dart';
+import '../../core/constants/moods.dart';
 import '../../services/post_service.dart';
 import '../../services/friend_service.dart';
 import '../../providers/auth_provider.dart';
@@ -566,22 +567,25 @@ class _PostCard extends StatelessWidget {
                     ),
                   ],
 
-                  // 별점
-                  if (post.rating > 0) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: List.generate(
-                        5,
-                        (index) => Icon(
-                          index < post.rating
-                              ? Icons.star
-                              : Icons.star_border,
-                          size: 16,
-                          color: Colors.amber,
+                  // 무드
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Moods.getIcon(post.mood),
+                        size: 16,
+                        color: Moods.getColor(post.mood),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        Moods.labels[post.mood] ?? '',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Moods.getColor(post.mood),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
               ),
             ),

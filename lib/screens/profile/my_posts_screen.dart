@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/sizes.dart';
 import '../../core/constants/ad_config.dart';
+import '../../core/constants/moods.dart';
 import '../../models/post_model.dart';
 import '../../services/post_service.dart';
 import '../../providers/auth_provider.dart' as auth;
@@ -337,21 +338,21 @@ class _PostCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      // 별점
+                      // 무드
                       Row(
                         children: [
                           Icon(
-                            Icons.star,
+                            Moods.getIcon(post.mood),
                             size: 16,
-                            color: Colors.amber[700],
+                            color: Moods.getColor(post.mood),
                           ),
                           const SizedBox(width: 2),
                           Text(
-                            post.rating.toStringAsFixed(1),
+                            Moods.labels[post.mood] ?? '',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.amber[700],
+                              color: Moods.getColor(post.mood),
                             ),
                           ),
                         ],

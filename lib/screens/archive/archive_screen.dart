@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/constants/sizes.dart';
 import '../../core/constants/baseball_data.dart';
+import '../../core/constants/moods.dart';
 import '../../models/post_model.dart';
 import '../../services/post_service.dart';
 
@@ -92,10 +93,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         if (!_selectedStadiums.contains(post.gameInfo.stadium)) return false;
       }
 
-      // 별점 필터
-      if (_minRating != null) {
-        if (post.rating < _minRating!) return false;
-      }
+      // 무드 필터는 제거됨 (rating -> mood 전환)
 
       return true;
     }).toList();
@@ -505,9 +503,9 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star, size: 16, color: Colors.amber),
+                    Icon(Moods.getIcon(post.mood), size: 16, color: Moods.getColor(post.mood)),
                     const SizedBox(width: 4),
-                    Text(post.rating.toStringAsFixed(1)),
+                    Text(Moods.labels[post.mood] ?? ''),
                   ],
                 ),
                 onTap: () async {
@@ -588,10 +586,10 @@ class _PostCard extends StatelessWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  const Icon(Icons.star, size: 14, color: Colors.amber),
+                  Icon(Moods.getIcon(post.mood), size: 14, color: Moods.getColor(post.mood)),
                   const SizedBox(width: 2),
                   Text(
-                    post.rating.toStringAsFixed(1),
+                    Moods.labels[post.mood] ?? '',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -643,10 +641,10 @@ class _PostCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.star, size: 16, color: Colors.amber),
+                    Icon(Moods.getIcon(post.mood), size: 16, color: Moods.getColor(post.mood)),
                     const SizedBox(width: 4),
                     Text(
-                      post.rating.toStringAsFixed(1),
+                      Moods.labels[post.mood] ?? '',
                       style: const TextStyle(fontSize: 14),
                     ),
                   ],

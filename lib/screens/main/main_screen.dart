@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/sizes.dart';
+import '../../core/constants/moods.dart';
 import '../../models/post_model.dart';
 import '../../models/user_model.dart';
 import '../../models/badge_model.dart' as badge_model;
@@ -378,6 +379,7 @@ class _QuickStatsCard extends StatelessWidget {
             icon: Icons.sports_baseball,
             label: '총 관람',
             value: '$totalCount회',
+            color: Colors.white,
           ),
           Container(
             width: 1,
@@ -388,52 +390,10 @@ class _QuickStatsCard extends StatelessWidget {
             icon: Icons.calendar_month,
             label: '이번 달',
             value: '$thisMonthCount회',
+            color: Colors.white,
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 통계 항목 위젯
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: Colors.white,
-          size: 32,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white70,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -645,16 +605,15 @@ class _TicketCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSizes.sm),
 
-              // 별점
+              // 무드 아이콘
               Row(
-                children: List.generate(
-                  5,
-                  (index) => Icon(
-                    index < post.rating.floor() ? Icons.star : Icons.star_border,
+                children: [
+                  Icon(
+                    Moods.getIcon(post.mood),
                     size: 16,
-                    color: theme.colorScheme.secondary,
+                    color: Moods.getColor(post.mood),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -1286,7 +1245,7 @@ class _ProfileTabState extends State<_ProfileTab> {
             },
           ),
           // 프리미엄 구독 버튼 (무료 사용자만)
-          if (user != null && userModel != null && !userModel.isPremium) ...[
+          if (user != null && !user.isPremium) ...[
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.star, color: Colors.amber),

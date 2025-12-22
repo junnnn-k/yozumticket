@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// 경기 관람 후 기분 이모지 상수
 class Moods {
   // 기분 값 상수
@@ -74,5 +76,41 @@ class Moods {
   // 유효성 검증
   static bool isValid(String mood) {
     return all.contains(mood);
+  }
+
+  // 아이콘 가져오기
+  static IconData getIcon(String mood) {
+    switch (mood) {
+      case excited:
+        return Icons.sentiment_very_satisfied;
+      case happy:
+        return Icons.sentiment_satisfied;
+      case normal:
+        return Icons.sentiment_neutral;
+      case sad:
+        return Icons.sentiment_dissatisfied;
+      case angry:
+        return Icons.sentiment_very_dissatisfied;
+      default:
+        return Icons.sentiment_neutral;
+    }
+  }
+
+  // 색상 가져오기
+  static Color getColor(String mood) {
+    switch (mood) {
+      case excited:
+        return Colors.amber;
+      case happy:
+        return Colors.green;
+      case normal:
+        return Colors.grey;
+      case sad:
+        return Colors.blue;
+      case angry:
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }

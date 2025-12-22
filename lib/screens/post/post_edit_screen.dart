@@ -2,11 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../../models/post_model.dart';
 import '../../services/image_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/post_service.dart';
 import '../../core/constants/moods.dart';
+import '../../providers/auth_provider.dart' as app_auth;
 
 /// 게시글 수정 화면
 class PostEditScreen extends StatefulWidget {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/post_model.dart';
 import '../../models/game_info.dart';
+import '../../core/constants/moods.dart';
 import '../../services/post_service.dart';
 
 /// Firestore 테스트 화면 (디버그용)
@@ -46,8 +47,8 @@ class _FirestoreTestScreenState extends State<FirestoreTestScreen> {
         title: '잠실에서 본 두산 vs LG 경기!',
         content: '오늘 경기 정말 재밌었어요. 홈런이 3개나 나왔습니다!',
         tags: ['#승리', '#홈런', '#잠실'],
-        rating: 4.5,
-        privacy: Privacy.publicPost,
+        mood: 'excited',
+        privacy: Privacy.friends,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -224,10 +225,10 @@ class _FirestoreTestScreenState extends State<FirestoreTestScreen> {
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      Icon(Icons.star,
-                                          size: 16, color: Colors.amber),
+                                      Icon(Moods.getIcon(post.mood),
+                                          size: 16, color: Moods.getColor(post.mood)),
                                       const SizedBox(width: 4),
-                                      Text('${post.rating}',
+                                      Text(Moods.labels[post.mood] ?? '',
                                           style: const TextStyle(fontSize: 12)),
                                       const SizedBox(width: 12),
                                       Icon(Icons.lock,

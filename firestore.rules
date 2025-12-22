@@ -37,9 +37,7 @@ service cloud.firestore {
       allow read: if
         // 본인의 게시글은 항상 읽기 가능
         isPostOwner()
-        // 전체 공개 게시글은 인증된 사용자 누구나 읽기 가능
-        || (isAuthenticated() && resource.data.privacy == 'public')
-        // 친구 공개는 일단 허용 (나중에 친구 관계 확인 로직 추가)
+        // 친구 공개는 인증된 사용자 누구나 읽기 가능 (친구 관계 확인은 앱 레벨에서 처리)
         || (isAuthenticated() && resource.data.privacy == 'friends');
 
       // 생성 규칙
@@ -52,11 +50,11 @@ service cloud.firestore {
           'userId', 'ticketImageUrl', 'gameInfo', 'title',
           'privacy', 'createdAt', 'updatedAt'
         ])
-        // 유효한 프라이버시 설정
-        && request.resource.data.privacy in ['private', 'friends', 'public']
-        // 별점 범위 확인 (0-5)
-        && request.resource.data.rating >= 0
-        && request.resource.data.rating <= 5;
+        // 유효한 프라이버시 설정 (private, friends만 허용)
+        && request.resource.data.privacy in ['private', 'friends']
+        // mood 필드 검증 (선택적)
+        && (!request.resource.data.keys().hasAny(['mood'])
+            || request.resource.data.mood in ['excited', 'happy', 'normal', 'sad', 'angry']);
 
       // 수정 규칙
       allow update: if
