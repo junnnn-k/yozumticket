@@ -81,11 +81,8 @@ service cloud.firestore {
 
     // ===== Friendships 컬렉션 =====
     match /friendships/{friendshipId} {
-      // 읽기: 자신이 요청자 또는 수신자인 경우만
-      allow read: if
-        isAuthenticated() &&
-        (resource.data.requesterId == request.auth.uid ||
-         resource.data.receiverId == request.auth.uid);
+      // 읽기: 인증된 사용자 누구나 가능 (친구 관계는 공개 정보)
+      allow read: if isAuthenticated();
 
       // 생성: 인증된 사용자만, 자신이 요청자인 경우만
       allow create: if

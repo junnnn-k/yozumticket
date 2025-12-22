@@ -245,18 +245,18 @@ class PostService {
   /// [viewerId] 조회하는 사용자 ID
   /// [limit] 조회할 게시글 수 (기본값: 20)
   ///
-  /// Returns: 친구의 공개 게시글 목록 (전체 공개 + 친구 공개)
+  /// Returns: 친구의 공개 게시글 목록 (친구 공개만)
   Future<List<Post>> getFriendPosts(
     String friendId,
     String viewerId, {
     int limit = 20,
   }) async {
     try {
-      // 친구의 게시글 중 전체 공개 또는 친구 공개인 게시글만 조회
+      // 친구의 게시글 중 친구 공개인 게시글만 조회
       final query = await _firestore
           .collection(_collectionName)
           .where('userId', isEqualTo: friendId)
-          .where('privacy', whereIn: ['public', 'friends'])
+          .where('privacy', isEqualTo: 'friends')
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .get();
