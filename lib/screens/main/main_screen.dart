@@ -645,7 +645,10 @@ class _FriendsTabState extends State<_FriendsTab>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadFriends();
+    // 첫 프레임 렌더링 후에 친구 목록 로드 (context 준비 보장)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFriends();
+    });
   }
 
   @override
