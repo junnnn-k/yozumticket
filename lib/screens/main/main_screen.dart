@@ -640,15 +640,25 @@ class _FriendsTabState extends State<_FriendsTab>
   List<UserModel> _friends = [];
   int _pendingRequestCount = 0;
   bool _isLoading = true;
+  bool _hasLoadedOnce = false; // 중복 로드 방지
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // 첫 프레임 렌더링 후에 친구 목록 로드 (context 준비 보장)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadFriends();
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // userModel이 준비되면 친구 목록 로드 (한 번만)
+    if (!_hasLoadedOnce) {
+      final currentUser = context.read<auth.AuthProvider>().userModel;
+      if (currentUser != null) {
+        _hasLoadedOnce = true;
+        _loadFriends();
+      }
+    }
   }
 
   @override
@@ -659,8 +669,13 @@ class _FriendsTabState extends State<_FriendsTab>
 
   /// 친구 목록 로드
   Future<void> _loadFriends() async {
+    print('[FriendsTab] _loadFriends() 시작');
+
     final currentUser = context.read<auth.AuthProvider>().userModel;
+    print('[FriendsTab] currentUser: ${currentUser?.uid ?? 'null'}');
+
     if (currentUser == null) {
+      print('[FriendsTab] currentUser가 null이므로 종료');
       // 로그인하지 않은 경우 로딩 상태 해제
       if (mounted) {
         setState(() {
@@ -675,6 +690,7 @@ class _FriendsTabState extends State<_FriendsTab>
     });
 
     try {
+      print('[FriendsTab] 친구 목록 조회 시작');
       final results = await Future.wait([
         _friendService.getFriends(currentUser.uid),
         _friendService.getPendingRequestCount(currentUser.uid),
@@ -682,15 +698,22 @@ class _FriendsTabState extends State<_FriendsTab>
 
       if (!mounted) return;
 
+      final friendsList = results[0] as List<UserModel>;
+      final requestCount = results[1] as int;
+
+      print('[FriendsTab] 친구 수: ${friendsList.length}, 요청 수: $requestCount');
+
       setState(() {
-        _friends = results[0] as List<UserModel>;
-        _pendingRequestCount = results[1] as int;
+        _friends = friendsList;
+        _pendingRequestCount = requestCount;
         _isLoading = false;
       });
 
       // 친구 요청 개수 변경을 부모 위젯에 알림
       widget.onRequestCountChanged(_pendingRequestCount);
+      print('[FriendsTab] _loadFriends() 완료');
     } catch (e) {
+      print('[FriendsTab] 에러 발생: $e');
       if (!mounted) return;
 
       setState(() {
