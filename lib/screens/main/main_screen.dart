@@ -650,28 +650,21 @@ class _FriendsTabState extends State<_FriendsTab>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    print('[FriendsTab] initState() 호출됨');
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print('[FriendsTab] didChangeDependencies() 호출됨, _hasLoadedOnce: $_hasLoadedOnce');
 
     // userModel이 준비되면 친구 목록 로드 (한 번만)
     if (!_hasLoadedOnce) {
       final currentUser = context.read<auth.AuthProvider>().userModel;
-      print('[FriendsTab] didChangeDependencies - currentUser: ${currentUser?.uid ?? 'null'}');
 
       if (currentUser != null) {
         _hasLoadedOnce = true;
         _lastUserModel = currentUser;
         _loadFriends();
-      } else {
-        print('[FriendsTab] didChangeDependencies - currentUser가 null이므로 대기 중');
       }
-    } else {
-      print('[FriendsTab] didChangeDependencies - 이미 로드했으므로 건너뜀');
     }
   }
 
@@ -683,13 +676,9 @@ class _FriendsTabState extends State<_FriendsTab>
 
   /// 친구 목록 로드
   Future<void> _loadFriends() async {
-    print('[FriendsTab] _loadFriends() 시작');
-
     final currentUser = context.read<auth.AuthProvider>().userModel;
-    print('[FriendsTab] currentUser: ${currentUser?.uid ?? 'null'}');
 
     if (currentUser == null) {
-      print('[FriendsTab] currentUser가 null이므로 종료');
       // 로그인하지 않은 경우 로딩 상태 해제
       if (mounted) {
         setState(() {
@@ -704,7 +693,6 @@ class _FriendsTabState extends State<_FriendsTab>
     });
 
     try {
-      print('[FriendsTab] 친구 목록 조회 시작');
       final results = await Future.wait([
         _friendService.getFriends(currentUser.uid),
         _friendService.getPendingRequestCount(currentUser.uid),
@@ -715,8 +703,6 @@ class _FriendsTabState extends State<_FriendsTab>
       final friendsList = results[0] as List<UserModel>;
       final requestCount = results[1] as int;
 
-      print('[FriendsTab] 친구 수: ${friendsList.length}, 요청 수: $requestCount');
-
       setState(() {
         _friends = friendsList;
         _pendingRequestCount = requestCount;
@@ -725,9 +711,7 @@ class _FriendsTabState extends State<_FriendsTab>
 
       // 친구 요청 개수 변경을 부모 위젯에 알림
       widget.onRequestCountChanged(_pendingRequestCount);
-      print('[FriendsTab] _loadFriends() 완료');
     } catch (e) {
-      print('[FriendsTab] 에러 발생: $e');
       if (!mounted) return;
 
       setState(() {
@@ -808,11 +792,8 @@ class _FriendsTabState extends State<_FriendsTab>
 
     return Consumer<auth.AuthProvider>(
       builder: (context, authProvider, child) {
-        print('[FriendsTab] build() - userModel: ${authProvider.userModel?.uid ?? 'null'}, _hasLoadedOnce: $_hasLoadedOnce');
-
         // userModel이 처음 로드되었을 때 친구 목록 로드
         if (!_hasLoadedOnce && authProvider.userModel != null) {
-          print('[FriendsTab] userModel이 처음 로드됨, _loadFriends() 호출');
           _hasLoadedOnce = true;
           _lastUserModel = authProvider.userModel;
           // build 중에는 setState를 호출할 수 없으므로 다음 프레임에서 실행
@@ -823,7 +804,6 @@ class _FriendsTabState extends State<_FriendsTab>
         // userModel이 변경되었을 때 (다른 계정으로 로그인 등)
         else if (_hasLoadedOnce &&
                  _lastUserModel?.uid != authProvider.userModel?.uid) {
-          print('[FriendsTab] userModel이 변경됨, 재로드');
           _lastUserModel = authProvider.userModel;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _loadFriends();
