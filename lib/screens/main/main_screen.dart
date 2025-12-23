@@ -171,18 +171,20 @@ class _HomeTabState extends State<_HomeTab> {
       // 총 게시글 수
       final allPosts = await _postService.getMyPosts(user.uid);
 
-      // 이번 달 게시글 수
+      // 올 시즌 게시글 수 (KBO 시즌: 3월 ~ 10월)
       final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final thisMonthPosts = allPosts.where((post) {
-        return post.createdAt.isAfter(startOfMonth);
+      // 현재 1-2월이면 전년도 시즌, 3-12월이면 올해 시즌
+      final seasonYear = now.month <= 2 ? now.year - 1 : now.year;
+      final startOfSeason = DateTime(seasonYear, 3, 1);
+      final thisSeasonPosts = allPosts.where((post) {
+        return post.createdAt.isAfter(startOfSeason);
       }).toList();
 
       if (!mounted) return;
 
       setState(() {
         _totalCount = allPosts.length;
-        _thisMonthCount = thisMonthPosts.length;
+        _thisMonthCount = thisSeasonPosts.length;
       });
     } catch (e) {
       debugPrint('통계 불러오기 실패: $e');
@@ -379,18 +381,18 @@ class _QuickStatsCard extends StatelessWidget {
             icon: Icons.sports_baseball,
             label: '총 관람',
             value: '$totalCount회',
-            color: Colors.white,
+            color: theme.colorScheme.onPrimary,
           ),
           Container(
             width: 1,
             height: 40,
-            color: Colors.white.withOpacity(0.3),
+            color: theme.colorScheme.onPrimary.withOpacity(0.3),
           ),
           _StatItem(
             icon: Icons.calendar_month,
-            label: '이번 달',
+            label: '올 시즌',
             value: '$thisMonthCount회',
-            color: Colors.white,
+            color: theme.colorScheme.onPrimary,
           ),
         ],
       ),
@@ -1157,67 +1159,106 @@ class _ProfileTabState extends State<_ProfileTab> {
       ),
       body: ListView(
         children: [
-          // 프로필 헤더
+          // 프로필 헤더 (배경화면 포함)
           Container(
-            padding: const EdgeInsets.all(AppSizes.lg),
-            color: theme.colorScheme.primary,
-            child: Column(
-              children: [
-                // 프로필 이미지
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: theme.colorScheme.onPrimary,
-                  backgroundImage: user?.profileImageUrl.isNotEmpty == true
-                      ? NetworkImage(user!.profileImageUrl)
-                      : null,
-                  child: user?.profileImageUrl.isEmpty ?? true
-                      ? Icon(
-                          Icons.person,
-                          size: 48,
-                          color: theme.colorScheme.primary,
-                        )
-                      : null,
+            height: 240,
+            decoration: BoxDecoration(
+              image: user?.coverImageUrl.isNotEmpty == true
+                  ? DecorationImage(
+                      image: NetworkImage(user!.coverImageUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+              color: user?.coverImageUrl.isEmpty ?? true
+                  ? theme.colorScheme.primary
+                  : null,
+            ),
+            child: Container(
+              // 반투명 오버레이 (텍스트 가독성 향상)
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.3),
+                    Colors.black.withOpacity(0.5),
+                  ],
                 ),
-                const SizedBox(height: AppSizes.md),
-                // 사용자 이름
-                Text(
-                  user?.username ?? '게스트',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onPrimary,
+              ),
+              padding: const EdgeInsets.all(AppSizes.lg),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 프로필 이미지
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.white,
+                    backgroundImage: user?.profileImageUrl.isNotEmpty == true
+                        ? NetworkImage(user!.profileImageUrl)
+                        : null,
+                    child: user?.profileImageUrl.isEmpty ?? true
+                        ? Icon(
+                            Icons.person,
+                            size: 48,
+                            color: theme.colorScheme.primary,
+                          )
+                        : null,
                   ),
-                ),
-                const SizedBox(height: 4),
-                // 이메일 또는 응원팀
-                Text(
-                  user?.email ?? '로그인이 필요합니다',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: theme.colorScheme.onPrimary.withValues(alpha: 0.8),
-                  ),
-                ),
-                if (user?.favoriteTeams.isNotEmpty == true) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: user!.favoriteTeams.map((team) {
-                      return Chip(
-                        label: Text(
-                          team,
-                          style: const TextStyle(fontSize: 12),
+                  const SizedBox(height: AppSizes.md),
+                  // 사용자 이름
+                  Text(
+                    user?.username ?? '게스트',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(0, 1),
+                          blurRadius: 3,
+                          color: Colors.black45,
                         ),
-                        backgroundColor: theme.colorScheme.secondary,
-                        labelStyle: TextStyle(
-                          color: theme.colorScheme.onSecondary,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }).toList(),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  // 이메일
+                  Text(
+                    user?.email ?? '로그인이 필요합니다',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(0, 1),
+                          blurRadius: 3,
+                          color: Colors.black45,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (user?.favoriteTeams.isNotEmpty == true) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: user!.favoriteTeams.map((team) {
+                        return Chip(
+                          label: Text(
+                            team,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          backgroundColor: theme.colorScheme.secondary,
+                          labelStyle: TextStyle(
+                            color: theme.colorScheme.onSecondary,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
 
@@ -1236,27 +1277,6 @@ class _ProfileTabState extends State<_ProfileTab> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
               child: _BadgeSection(badges: _unlockedBadges),
-            ),
-          ],
-
-          // 내 게시글 버튼
-          if (user != null) ...[
-            const SizedBox(height: AppSizes.lg),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  context.push('/my-posts');
-                },
-                icon: const Icon(Icons.list),
-                label: const Text('내 게시글 보기'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.all(AppSizes.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                  ),
-                ),
-              ),
             ),
           ],
 
@@ -1422,15 +1442,16 @@ class _StatItem extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey[600],
+            color: color.withOpacity(0.8),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
+            color: color,
           ),
           textAlign: TextAlign.center,
         ),

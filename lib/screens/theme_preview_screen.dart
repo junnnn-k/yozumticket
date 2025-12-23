@@ -87,29 +87,13 @@ class ThemePreviewScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSizes.md),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                '원하는 테마를 선택하세요',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (authProvider.currentUser != null && !authProvider.currentUser!.isPremium)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Tooltip(
-                    message: '프리미엄 테마는 구독이 필요합니다',
-                    child: Icon(
-                      Icons.info_outline,
-                      size: 20,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-            ],
+          const Text(
+            '원하는 테마를 선택하세요',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: AppSizes.lg),
 
