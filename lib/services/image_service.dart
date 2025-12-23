@@ -345,6 +345,9 @@ class ImageService {
   ///
   /// Returns:
   ///   최종 이미지 파일, 취소 시 null
+  ///
+  /// Throws:
+  ///   크롭 후 파일 크기가 제한을 초과하면 Exception
   Future<File?> pickAndCropImage(
     BuildContext context, {
     bool showCrop = true,
@@ -356,7 +359,12 @@ class ImageService {
     // 2. 크롭 (옵션)
     if (showCrop) {
       final File? croppedFile = await cropImage(imageFile);
-      return croppedFile ?? imageFile; // 크롭 취소 시 원본 반환
+      final File finalFile = croppedFile ?? imageFile;
+
+      // 크롭 후 이미지도 크기 검증
+      await _validateFileSize(finalFile);
+
+      return finalFile;
     }
 
     return imageFile;
@@ -371,7 +379,8 @@ class ImageService {
   ///   선택된 이미지 파일 리스트
   ///
   /// Throws:
-  ///   파일 크기가 제한을 초과하면 Exception
+  ///   모든 파일이 크기 제한을 초과하면 Exception
+  ///   일부 파일만 초과 시 성공한 파일 반환 후 경고 메시지 출력
   Future<List<File>> pickMultipleImages({
     BuildContext? context,
     int maxImages = 10,
@@ -397,19 +406,32 @@ class ImageService {
 
       // XFile을 File로 변환 및 크기 검증
       final List<File> validatedFiles = [];
+      final List<String> rejectedFiles = [];
+
       for (final xFile in limitedImages) {
         final file = File(xFile.path);
         try {
           await _validateFileSize(file);
           validatedFiles.add(file);
         } catch (e) {
-          // 크기 초과 파일은 건너뛰고 경고 표시
+          // 크기 초과 파일 정보 저장
+          final fileSize = await file.length();
+          final fileSizeMB = (fileSize / 1024 / 1024).toStringAsFixed(1);
+          rejectedFiles.add('${xFile.name} ($fileSizeMB MB)');
           debugPrint('이미지 크기 초과로 건너뜀: ${xFile.name}');
-          // 첫 번째 크기 초과 파일에서 예외 발생
-          if (validatedFiles.isEmpty) {
-            rethrow;
-          }
         }
+      }
+
+      // 모든 파일이 거부된 경우 예외 발생
+      if (validatedFiles.isEmpty && rejectedFiles.isNotEmpty) {
+        throw Exception(
+          '모든 이미지가 크기 제한(10MB)을 초과했습니다.\n거부된 파일: ${rejectedFiles.join(", ")}',
+        );
+      }
+
+      // 일부 파일만 거부된 경우 경고 출력
+      if (rejectedFiles.isNotEmpty) {
+        debugPrint('⚠️ ${rejectedFiles.length}개 파일이 크기 제한으로 제외됨: ${rejectedFiles.join(", ")}');
       }
 
       return validatedFiles;
