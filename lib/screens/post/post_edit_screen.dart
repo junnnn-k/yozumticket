@@ -9,6 +9,7 @@ import '../../services/storage_service.dart';
 import '../../services/post_service.dart';
 import '../../core/constants/moods.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import '../../widgets/ads/rewarded_ad_button.dart';
 
 /// 게시글 수정 화면
 class PostEditScreen extends StatefulWidget {
@@ -652,10 +653,31 @@ class _PostEditScreenState extends State<PostEditScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            TextButton.icon(
-              onPressed: totalPhotos >= maxPhotos ? null : _pickAdditionalPhotos,
-              icon: const Icon(Icons.add_photo_alternate),
-              label: const Text('사진 추가'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 무료 사용자이고 제한에 도달한 경우 광고 버튼 표시
+                if (currentUser != null && !currentUser.isPremium && totalPhotos >= maxPhotos)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: RewardedAdButton(
+                      rewardType: RewardType.extraPhoto,
+                      buttonText: '광고 보고 슬롯 받기',
+                      onRewardGranted: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('추가 사진 슬롯이 활성화되었습니다!'),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                TextButton.icon(
+                  onPressed: totalPhotos >= maxPhotos ? null : _pickAdditionalPhotos,
+                  icon: const Icon(Icons.add_photo_alternate),
+                  label: const Text('사진 추가'),
+                ),
+              ],
             ),
           ],
         ),

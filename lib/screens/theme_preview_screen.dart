@@ -5,6 +5,7 @@ import '../core/constants/app_themes.dart';
 import '../core/constants/sizes.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/ads/rewarded_ad_button.dart';
 
 /// 테마 미리보기 및 선택 화면
 class ThemePreviewScreen extends StatelessWidget {
@@ -53,6 +54,23 @@ class ThemePreviewScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 13),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // 광고 보고 무료 체험하기 버튼
+            SizedBox(
+              width: double.infinity,
+              child: RewardedAdButton(
+                rewardType: RewardType.premiumTheme,
+                buttonText: '광고 보고 무료 체험하기',
+                onRewardGranted: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('프리미엄 테마가 활성화되었습니다!'),
+                    ),
+                  );
+                },
               ),
             ),
           ],

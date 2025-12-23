@@ -12,6 +12,7 @@ import '../../services/post_service.dart';
 import '../../core/constants/baseball_data.dart';
 import '../../core/constants/moods.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import '../../widgets/ads/rewarded_ad_button.dart';
 
 /// 게시글 작성 화면
 class PostCreateScreen extends StatefulWidget {
@@ -660,30 +661,38 @@ class _PostCreateScreenState extends State<PostCreateScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Text(
+                '추가 사진 (${_additionalPhotos.length}/$maxPhotos)',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '추가 사진 (${_additionalPhotos.length}/$maxPhotos)',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (currentUser != null && !currentUser.isPremium && maxPhotos == 3)
+                  // 무료 사용자이고 제한에 도달한 경우 광고 버튼 표시
+                  if (currentUser != null && !currentUser.isPremium && isLimitReached)
                     Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: Colors.grey.shade600,
+                      padding: const EdgeInsets.only(right: 8),
+                      child: RewardedAdButton(
+                        rewardType: RewardType.extraPhoto,
+                        buttonText: '광고 보고 슬롯 받기',
+                        onRewardGranted: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('추가 사진 슬롯이 활성화되었습니다!'),
+                            ),
+                          );
+                        },
                       ),
                     ),
+                  TextButton.icon(
+                    onPressed: isLimitReached ? null : _pickAdditionalPhotos,
+                    icon: const Icon(Icons.add_photo_alternate),
+                    label: const Text('사진 추가'),
+                  ),
                 ],
-              ),
-              TextButton.icon(
-                onPressed: isLimitReached ? null : _pickAdditionalPhotos,
-                icon: const Icon(Icons.add_photo_alternate),
-                label: const Text('사진 추가'),
               ),
             ],
           ),
