@@ -13,6 +13,7 @@ import '../../models/post_model.dart';
 import '../../services/shared_archive_service.dart';
 import '../../services/user_service.dart';
 import '../../services/post_service.dart';
+import '../../services/friend_service.dart';
 import '../../providers/shared_archives_provider.dart';
 
 class SharedArchiveDetailScreen extends StatefulWidget {
@@ -32,6 +33,7 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
   final SharedArchiveService _archiveService = SharedArchiveService();
   final UserService _userService = UserService();
   final PostService _postService = PostService();
+  final FriendService _friendService = FriendService();
 
   SharedArchive? _archive;
   List<UserModel> _members = [];
@@ -235,20 +237,41 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '멤버 관리',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '멤버 관리',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${_members.length}명',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${_members.length}명',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
+                    // 멤버 추가 버튼 (생성자만)
+                    if (_isCreator)
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context); // 바텀시트 닫기
+                          _showAddMemberDialog();
+                        },
+                        icon: const Icon(Icons.person_add, size: 18),
+                        label: const Text('추가'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -378,6 +401,124 @@ class _SharedArchiveDetailScreenState extends State<SharedArchiveDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('멤버 제거 실패: $e')),
+      );
+    }
+  }
+
+  /// 멤버 추가 다이얼로그 표시
+  Future<void> _showAddMemberDialog() async {
+    if (_archive == null) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      // 친구 목록 로드
+      final friends = await _friendService.getFriends(currentUser.uid);
+
+      if (!mounted) return;
+
+      if (friends.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('추가할 친구가 없습니다')),
+        );
+        return;
+      }
+
+      // 이미 멤버인 친구 제외
+      final availableFriends = friends
+          .where((friend) => !_archive!.members.contains(friend.uid))
+          .toList();
+
+      if (availableFriends.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('모든 친구가 이미 멤버입니다')),
+        );
+        return;
+      }
+
+      // 친구 선택 다이얼로그
+      final selectedFriend = await showDialog<UserModel>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('멤버 추가'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availableFriends.length,
+              itemBuilder: (context, index) {
+                final friend = availableFriends[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: friend.profileImageUrl.isNotEmpty
+                        ? NetworkImage(friend.profileImageUrl)
+                        : null,
+                    child: friend.profileImageUrl.isEmpty
+                        ? Text(friend.username[0].toUpperCase())
+                        : null,
+                  ),
+                  title: Text(friend.username),
+                  subtitle: friend.favoriteTeams.isNotEmpty
+                      ? Text('응원팀: ${friend.favoriteTeams.join(', ')}')
+                      : null,
+                  onTap: () => Navigator.of(context).pop(friend),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('취소'),
+            ),
+          ],
+        ),
+      );
+
+      if (selectedFriend == null) return;
+
+      // 멤버 추가 실행
+      await _addMember(selectedFriend);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('친구 목록 로드 실패: $e')),
+      );
+    }
+  }
+
+  /// 멤버 추가 실행
+  Future<void> _addMember(UserModel friend) async {
+    try {
+      final archivesProvider = context.read<SharedArchivesProvider>();
+      final success = await archivesProvider.addMember(
+        archiveId: widget.archiveId,
+        userId: friend.uid,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${friend.username}님을 추가했습니다')),
+        );
+
+        // 바텀시트 닫기
+        Navigator.of(context).pop();
+
+        // 데이터 새로고침
+        _loadArchiveData();
+      } else {
+        final error = archivesProvider.errorMessage ?? '알 수 없는 오류';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('멤버 추가 실패: $e')),
       );
     }
   }
