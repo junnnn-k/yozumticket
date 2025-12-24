@@ -521,4 +521,115 @@ class UserService {
       rethrow;
     }
   }
+
+  // ========================================
+  // 리워드 광고 보상 관리 (v3.3)
+  // ========================================
+
+  /// 프리미엄 테마 광고 시청 횟수 증가
+  Future<void> incrementPremiumThemeAdCount(String uid) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      final now = DateTime.now();
+      final lastDate = user.lastPremiumThemeAdDate;
+
+      // 날짜가 바뀌었으면 카운트 초기화
+      int newCount = 1;
+      if (lastDate != null &&
+          lastDate.year == now.year &&
+          lastDate.month == now.month &&
+          lastDate.day == now.day) {
+        newCount = user.dailyPremiumThemeAdCount + 1;
+      }
+
+      await updateUser(uid, {
+        'dailyPremiumThemeAdCount': newCount,
+        'lastPremiumThemeAdDate': Timestamp.fromDate(now),
+      });
+    } catch (e) {
+      print('[UserService] Failed to increment premium theme ad count: $e');
+      rethrow;
+    }
+  }
+
+  /// 추가 사진 광고 시청 횟수 증가
+  Future<void> incrementExtraPhotoAdCount(String uid) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      final now = DateTime.now();
+      final lastDate = user.lastExtraPhotoAdDate;
+
+      // 날짜가 바뀌었으면 카운트 초기화
+      int newCount = 1;
+      if (lastDate != null &&
+          lastDate.year == now.year &&
+          lastDate.month == now.month &&
+          lastDate.day == now.day) {
+        newCount = user.dailyExtraPhotoAdCount + 1;
+      }
+
+      await updateUser(uid, {
+        'dailyExtraPhotoAdCount': newCount,
+        'lastExtraPhotoAdDate': Timestamp.fromDate(now),
+      });
+    } catch (e) {
+      print('[UserService] Failed to increment extra photo ad count: $e');
+      rethrow;
+    }
+  }
+
+  /// 임시 프리미엄 부여 (광고 보상)
+  ///
+  /// [expiry] 만료 시간 (보통 1일 후)
+  Future<void> grantTempPremium(String uid, DateTime expiry) async {
+    try {
+      await updateUser(uid, {
+        'tempPremiumExpiry': Timestamp.fromDate(expiry),
+      });
+      print('[UserService] Temp premium granted until: $expiry');
+    } catch (e) {
+      print('[UserService] Failed to grant temp premium: $e');
+      rethrow;
+    }
+  }
+
+  /// 임시 추가 사진 부여 (광고 보상)
+  ///
+  /// 1회 추가 (기존 값에 +1)
+  Future<void> grantTempExtraPhoto(String uid) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      final newCount = user.tempExtraPhotoCount + 1;
+      await updateUser(uid, {
+        'tempExtraPhotoCount': newCount,
+      });
+      print('[UserService] Temp extra photo granted. Total: $newCount');
+    } catch (e) {
+      print('[UserService] Failed to grant temp extra photo: $e');
+      rethrow;
+    }
+  }
+
+  /// 임시 추가 사진 사용 (1회 차감)
+  Future<void> consumeTempExtraPhoto(String uid) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null || user.tempExtraPhotoCount <= 0) return;
+
+      final newCount = user.tempExtraPhotoCount - 1;
+      await updateUser(uid, {
+        'tempExtraPhotoCount': newCount,
+      });
+      print('[UserService] Temp extra photo consumed. Remaining: $newCount');
+    } catch (e) {
+      print('[UserService] Failed to consume temp extra photo: $e');
+      rethrow;
+    }
+  }
 }

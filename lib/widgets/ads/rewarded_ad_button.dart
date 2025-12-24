@@ -46,7 +46,7 @@ class _RewardedAdButtonState extends State<RewardedAdButton> {
     _adManager.loadAd();
   }
 
-  /// 남은 시청 횟수 로드
+  /// 남은 시청 횟수 로드 (보상 타입별)
   Future<void> _loadRemainingCount() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -57,7 +57,7 @@ class _RewardedAdButtonState extends State<RewardedAdButton> {
       return;
     }
 
-    final count = await _adManager.getRemainingWatchCount(user.uid);
+    final count = await _adManager.getRemainingWatchCount(user.uid, widget.rewardType);
     if (mounted) {
       setState(() {
         _remainingCount = count;
@@ -221,7 +221,7 @@ class _RewardedAdButtonState extends State<RewardedAdButton> {
                     Text(
                       _isLoading
                           ? '확인 중...'
-                          : '오늘 $_remainingCount/${AdConfig.maxDailyRewardedAds}회 남음',
+                          : '오늘 $_remainingCount/${_getMaxCount()}회 남음',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -271,6 +271,16 @@ class _RewardedAdButtonState extends State<RewardedAdButton> {
         return '프리미엄 테마를 1일 동안 무료로 사용해보세요';
       case RewardType.extraPhoto:
         return '다음 게시물에서 사진 20장 업로드 가능';
+    }
+  }
+
+  /// 보상 타입별 최대 횟수
+  int _getMaxCount() {
+    switch (widget.rewardType) {
+      case RewardType.premiumTheme:
+        return AdConfig.maxDailyPremiumThemeAds;
+      case RewardType.extraPhoto:
+        return AdConfig.maxDailyExtraPhotoAds;
     }
   }
 }

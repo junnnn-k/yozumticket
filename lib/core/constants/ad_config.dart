@@ -91,8 +91,14 @@ class AdConfig {
   /// 게시물 목록에서 배너 광고 표시 간격 (7개당 1개)
   static const int bannerAdInterval = 7;
 
-  /// 일일 리워드 광고 시청 제한 (3회)
+  /// 일일 리워드 광고 시청 제한 (기본값, extraPhoto에 사용)
   static const int maxDailyRewardedAds = 3;
+
+  /// 프리미엄 테마 광고 일일 제한 (1회)
+  static const int maxDailyPremiumThemeAds = 1;
+
+  /// 추가 사진 광고 일일 제한 (3회)
+  static const int maxDailyExtraPhotoAds = 3;
 
   /// 리워드 광고 보상 (프리미엄 테마 1일 무료 체험)
   static const int rewardedAdPremiumDays = 1;

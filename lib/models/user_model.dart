@@ -24,10 +24,20 @@ class UserModel {
   final int maxPhotosPerPost; // 게시물당 사진 제한 (무료: 3, 프리미엄: 20)
   final int maxSharedArchives; // 공동 아카이브 제한 (무료: 2, 프리미엄: -1 무제한)
   final bool showBannerAds; // 배너 광고 표시 여부
-  final int dailyRewardedAdCount; // 금일 리워드 광고 시청 횟수
-  final DateTime? lastRewardedAdDate; // 마지막 리워드 광고 시청일
+  final int dailyRewardedAdCount; // 금일 리워드 광고 시청 횟수 (레거시, 호환성용)
+  final DateTime? lastRewardedAdDate; // 마지막 리워드 광고 시청일 (레거시, 호환성용)
   final List<String> ownedThemes; // 구매한 테마 ID 목록
   final List<String> purchaseHistory; // 구매 이력 (productId 목록)
+
+  // 리워드 광고 개별 카운터 (v3.3)
+  final int dailyPremiumThemeAdCount; // 프리미엄 테마 광고 일일 시청 횟수
+  final int dailyExtraPhotoAdCount; // 추가 사진 광고 일일 시청 횟수
+  final DateTime? lastPremiumThemeAdDate; // 프리미엄 테마 광고 마지막 시청일
+  final DateTime? lastExtraPhotoAdDate; // 추가 사진 광고 마지막 시청일
+
+  // 임시 보상 (v3.3)
+  final DateTime? tempPremiumExpiry; // 임시 프리미엄 만료 시간 (광고 보상)
+  final int tempExtraPhotoCount; // 임시 추가 사진 사용 가능 횟수 (광고 보상)
 
   // FCM 관련 필드 (v3.2)
   final String? fcmToken; // FCM 토큰 (푸시 알림용)
@@ -56,6 +66,14 @@ class UserModel {
     this.lastRewardedAdDate,
     this.ownedThemes = const [],
     this.purchaseHistory = const [],
+    // 리워드 광고 개별 카운터
+    this.dailyPremiumThemeAdCount = 0,
+    this.dailyExtraPhotoAdCount = 0,
+    this.lastPremiumThemeAdDate,
+    this.lastExtraPhotoAdDate,
+    // 임시 보상
+    this.tempPremiumExpiry,
+    this.tempExtraPhotoCount = 0,
     // FCM 관련 필드
     this.fcmToken,
   });
@@ -92,6 +110,20 @@ class UserModel {
           : null,
       'ownedThemes': ownedThemes,
       'purchaseHistory': purchaseHistory,
+      // 리워드 광고 개별 카운터
+      'dailyPremiumThemeAdCount': dailyPremiumThemeAdCount,
+      'dailyExtraPhotoAdCount': dailyExtraPhotoAdCount,
+      'lastPremiumThemeAdDate': lastPremiumThemeAdDate != null
+          ? Timestamp.fromDate(lastPremiumThemeAdDate!)
+          : null,
+      'lastExtraPhotoAdDate': lastExtraPhotoAdDate != null
+          ? Timestamp.fromDate(lastExtraPhotoAdDate!)
+          : null,
+      // 임시 보상
+      'tempPremiumExpiry': tempPremiumExpiry != null
+          ? Timestamp.fromDate(tempPremiumExpiry!)
+          : null,
+      'tempExtraPhotoCount': tempExtraPhotoCount,
       // FCM 관련 필드
       'fcmToken': fcmToken,
     };
@@ -129,6 +161,20 @@ class UserModel {
           : null,
       ownedThemes: List<String>.from(json['ownedThemes'] as List? ?? []),
       purchaseHistory: List<String>.from(json['purchaseHistory'] as List? ?? []),
+      // 리워드 광고 개별 카운터 (v3.3)
+      dailyPremiumThemeAdCount: json['dailyPremiumThemeAdCount'] as int? ?? 0,
+      dailyExtraPhotoAdCount: json['dailyExtraPhotoAdCount'] as int? ?? 0,
+      lastPremiumThemeAdDate: json['lastPremiumThemeAdDate'] != null
+          ? (json['lastPremiumThemeAdDate'] as Timestamp).toDate()
+          : null,
+      lastExtraPhotoAdDate: json['lastExtraPhotoAdDate'] != null
+          ? (json['lastExtraPhotoAdDate'] as Timestamp).toDate()
+          : null,
+      // 임시 보상 (v3.3)
+      tempPremiumExpiry: json['tempPremiumExpiry'] != null
+          ? (json['tempPremiumExpiry'] as Timestamp).toDate()
+          : null,
+      tempExtraPhotoCount: json['tempExtraPhotoCount'] as int? ?? 0,
       // FCM 관련 필드
       fcmToken: json['fcmToken'] as String?,
     );
@@ -163,6 +209,12 @@ class UserModel {
     DateTime? lastRewardedAdDate,
     List<String>? ownedThemes,
     List<String>? purchaseHistory,
+    int? dailyPremiumThemeAdCount,
+    int? dailyExtraPhotoAdCount,
+    DateTime? lastPremiumThemeAdDate,
+    DateTime? lastExtraPhotoAdDate,
+    DateTime? tempPremiumExpiry,
+    int? tempExtraPhotoCount,
     String? fcmToken,
   }) {
     return UserModel(
@@ -187,6 +239,12 @@ class UserModel {
       lastRewardedAdDate: lastRewardedAdDate ?? this.lastRewardedAdDate,
       ownedThemes: ownedThemes ?? this.ownedThemes,
       purchaseHistory: purchaseHistory ?? this.purchaseHistory,
+      dailyPremiumThemeAdCount: dailyPremiumThemeAdCount ?? this.dailyPremiumThemeAdCount,
+      dailyExtraPhotoAdCount: dailyExtraPhotoAdCount ?? this.dailyExtraPhotoAdCount,
+      lastPremiumThemeAdDate: lastPremiumThemeAdDate ?? this.lastPremiumThemeAdDate,
+      lastExtraPhotoAdDate: lastExtraPhotoAdDate ?? this.lastExtraPhotoAdDate,
+      tempPremiumExpiry: tempPremiumExpiry ?? this.tempPremiumExpiry,
+      tempExtraPhotoCount: tempExtraPhotoCount ?? this.tempExtraPhotoCount,
       fcmToken: fcmToken ?? this.fcmToken,
     );
   }

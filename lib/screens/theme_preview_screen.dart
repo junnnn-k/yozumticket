@@ -6,6 +6,7 @@ import '../core/constants/sizes.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/ads/rewarded_ad_button.dart';
+import '../services/rewarded_ad_manager.dart';
 
 /// 테마 미리보기 및 선택 화면
 class ThemePreviewScreen extends StatelessWidget {

@@ -10,6 +10,7 @@ import '../../services/post_service.dart';
 import '../../core/constants/moods.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../widgets/ads/rewarded_ad_button.dart';
+import '../../services/rewarded_ad_manager.dart';
 
 /// 게시글 수정 화면
 class PostEditScreen extends StatefulWidget {

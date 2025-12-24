@@ -115,24 +115,34 @@ class RewardedAdManager {
     );
   }
 
-  /// 일일 리워드 광고 시청 가능 여부 확인
-  Future<bool> canWatchRewardedAd(String userId) async {
+  /// 일일 리워드 광고 시청 가능 여부 확인 (보상 타입별)
+  Future<bool> canWatchRewardedAd(String userId, RewardType rewardType) async {
     try {
       final user = await _userService.getUser(userId);
       if (user == null) return false;
 
-      // 일일 제한 확인
       final today = DateTime.now();
-      final lastAdDate = user.lastRewardedAdDate;
 
-      // 날짜가 다르면 카운터 리셋
-      if (lastAdDate == null ||
-          !_isSameDay(today, lastAdDate)) {
-        return true;
+      // 보상 타입별 확인
+      switch (rewardType) {
+        case RewardType.premiumTheme:
+          final lastDate = user.lastPremiumThemeAdDate;
+          // 날짜가 다르면 시청 가능
+          if (lastDate == null || !_isSameDay(today, lastDate)) {
+            return true;
+          }
+          // 오늘 시청 횟수 확인
+          return user.dailyPremiumThemeAdCount < AdConfig.maxDailyPremiumThemeAds;
+
+        case RewardType.extraPhoto:
+          final lastDate = user.lastExtraPhotoAdDate;
+          // 날짜가 다르면 시청 가능
+          if (lastDate == null || !_isSameDay(today, lastDate)) {
+            return true;
+          }
+          // 오늘 시청 횟수 확인
+          return user.dailyExtraPhotoAdCount < AdConfig.maxDailyExtraPhotoAds;
       }
-
-      // 오늘 시청 횟수 확인
-      return user.dailyRewardedAdCount < AdConfig.maxDailyRewardedAds;
     } catch (e) {
       dev.log('Error checking rewarded ad availability: $e',
           name: 'RewardedAdManager', error: e);
@@ -140,23 +150,36 @@ class RewardedAdManager {
     }
   }
 
-  /// 남은 리워드 광고 시청 횟수 조회
-  Future<int> getRemainingWatchCount(String userId) async {
+  /// 남은 리워드 광고 시청 횟수 조회 (보상 타입별)
+  Future<int> getRemainingWatchCount(String userId, RewardType rewardType) async {
     try {
       final user = await _userService.getUser(userId);
       if (user == null) return 0;
 
       final today = DateTime.now();
-      final lastAdDate = user.lastRewardedAdDate;
 
-      // 날짜가 다르면 전체 횟수 반환
-      if (lastAdDate == null || !_isSameDay(today, lastAdDate)) {
-        return AdConfig.maxDailyRewardedAds;
+      // 보상 타입별 계산
+      switch (rewardType) {
+        case RewardType.premiumTheme:
+          final lastDate = user.lastPremiumThemeAdDate;
+          // 날짜가 다르면 전체 횟수 반환
+          if (lastDate == null || !_isSameDay(today, lastDate)) {
+            return AdConfig.maxDailyPremiumThemeAds;
+          }
+          // 남은 횟수 계산
+          final remaining = AdConfig.maxDailyPremiumThemeAds - user.dailyPremiumThemeAdCount;
+          return (remaining > 0 ? remaining : 0).toInt();
+
+        case RewardType.extraPhoto:
+          final lastDate = user.lastExtraPhotoAdDate;
+          // 날짜가 다르면 전체 횟수 반환
+          if (lastDate == null || !_isSameDay(today, lastDate)) {
+            return AdConfig.maxDailyExtraPhotoAds;
+          }
+          // 남은 횟수 계산
+          final remaining = AdConfig.maxDailyExtraPhotoAds - user.dailyExtraPhotoAdCount;
+          return (remaining > 0 ? remaining : 0).toInt();
       }
-
-      // 남은 횟수 계산
-      final remaining = AdConfig.maxDailyRewardedAds - user.dailyRewardedAdCount;
-      return (remaining > 0 ? remaining : 0).toInt();
     } catch (e) {
       dev.log('Error getting remaining watch count: $e',
           name: 'RewardedAdManager', error: e);
@@ -170,11 +193,11 @@ class RewardedAdManager {
     required String userId,
     required RewardType rewardType,
   }) async {
-    // 시청 가능 여부 확인
-    final canWatch = await canWatchRewardedAd(userId);
+    // 시청 가능 여부 확인 (보상 타입별)
+    final canWatch = await canWatchRewardedAd(userId, rewardType);
     if (!canWatch) {
       if (!context.mounted) return false;
-      _showDailyLimitDialog(context);
+      _showDailyLimitDialog(context, rewardType);
       return false;
     }
 
@@ -218,8 +241,15 @@ class RewardedAdManager {
           );
         }
 
-        // 일일 카운터 증가
-        await _userService.incrementRewardedAdCount(userId);
+        // 일일 카운터 증가 (보상 타입별)
+        switch (rewardType) {
+          case RewardType.premiumTheme:
+            await _userService.incrementPremiumThemeAdCount(userId);
+            break;
+          case RewardType.extraPhoto:
+            await _userService.incrementExtraPhotoAdCount(userId);
+            break;
+        }
 
         if (context.mounted) {
           _showRewardSuccessDialog(context, rewardType);
@@ -235,17 +265,18 @@ class RewardedAdManager {
     try {
       switch (rewardType) {
         case RewardType.premiumTheme:
-          // TODO: 프리미엄 테마 1일 임시 활성화
+          // 프리미엄 테마 1일 임시 활성화
           dev.log('Granting premium theme access for 1 day',
               name: 'RewardedAdManager');
-          // 향후 구현: 임시 프리미엄 기능 추가
+          final expiry = DateTime.now().add(const Duration(days: 1));
+          await _userService.grantTempPremium(userId, expiry);
           return true;
 
         case RewardType.extraPhoto:
-          // TODO: 추가 사진 1회 권한 부여
+          // 추가 사진 1회 권한 부여
           dev.log('Granting extra photo slot (20 photos)',
               name: 'RewardedAdManager');
-          // 향후 구현: 임시 사진 제한 상승
+          await _userService.grantTempExtraPhoto(userId);
           return true;
       }
     } catch (e) {
@@ -255,8 +286,12 @@ class RewardedAdManager {
     }
   }
 
-  /// 일일 제한 도달 다이얼로그
-  void _showDailyLimitDialog(BuildContext context) {
+  /// 일일 제한 도달 다이얼로그 (보상 타입별)
+  void _showDailyLimitDialog(BuildContext context, RewardType rewardType) {
+    final maxCount = rewardType == RewardType.premiumTheme
+        ? AdConfig.maxDailyPremiumThemeAds
+        : AdConfig.maxDailyExtraPhotoAds;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -264,7 +299,7 @@ class RewardedAdManager {
         content: Text(
           '오늘 리워드 광고 시청 횟수를 모두 사용했습니다.\n'
           '내일 다시 시도해주세요!\n\n'
-          '일일 제한: ${AdConfig.maxDailyRewardedAds}회',
+          '일일 제한: $maxCount회',
         ),
         actions: [
           TextButton(

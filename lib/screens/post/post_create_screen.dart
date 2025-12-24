@@ -13,6 +13,7 @@ import '../../core/constants/baseball_data.dart';
 import '../../core/constants/moods.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../widgets/ads/rewarded_ad_button.dart';
+import '../../services/rewarded_ad_manager.dart';
 
 /// 게시글 작성 화면
 class PostCreateScreen extends StatefulWidget {

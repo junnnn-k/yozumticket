@@ -171,13 +171,16 @@ class _HomeTabState extends State<_HomeTab> {
       // 총 게시글 수
       final allPosts = await _postService.getMyPosts(user.uid);
 
-      // 올 시즌 게시글 수 (KBO 시즌: 3월 ~ 10월)
+      // 올 시즌 게시글 수 (관람 연도 기준)
       final now = DateTime.now();
       // 현재 1-2월이면 전년도 시즌, 3-12월이면 올해 시즌
       final seasonYear = now.month <= 2 ? now.year - 1 : now.year;
-      final startOfSeason = DateTime(seasonYear, 3, 1);
+
+      // 티켓의 실제 관람 날짜(gameInfo.date)의 연도를 기준으로 필터링
       final thisSeasonPosts = allPosts.where((post) {
-        return post.createdAt.isAfter(startOfSeason);
+        final gameDate = post.gameInfo.date;
+        if (gameDate == null) return false;
+        return gameDate.year == seasonYear;
       }).toList();
 
       if (!mounted) return;
